@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= it.title %> — <%= it.brand.name %></title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="icon" href="/img/mark.svg" type="image/svg+xml">
+<script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <a class="logo" href="/">
+      <svg class="logo-mark" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#3B7BFF"/><path d="M8 22L13 13l4 5 3-4 4 8" stroke="#F5B82E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <%= it.brand.name %>
+    </a>
+
+    <% it.nav.forEach(function(group){ %>
+      <div class="side-grp">
+        <p><%= group.label %></p>
+        <% group.items.forEach(function(i){ %>
+          <a href="<%= i.href %>"
+             class="<%= (it.path === i.href || (i.href !== '/dashboard' && it.path.startsWith(i.href))) ? 'on' : '' %>"
+             <%= (it.path === i.href || (i.href !== '/dashboard' && it.path.startsWith(i.href))) ? 'aria-current=page' : '' %>>
+            <%~ i.icon %>
+            <span class="label"><%= i.label %></span>
+            <% if (i.tag) { %><span class="tag tag--<%= i.tag.toLowerCase() %>"><%= i.tag %></span><% } %>
+          </a>
+        <% }) %>
+      </div>
+    <% }) %>
+
+    <div class="side-grp">
+      <p>Account</p>
+      <a href="/dashboard/account"
+         class="<%= (it.path === '/dashboard/account' || it.path.startsWith('/dashboard/account/')) ? 'on' : '' %>"
+         <%= (it.path === '/dashboard/account' || it.path.startsWith('/dashboard/account/')) ? 'aria-current=page' : '' %>>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>
+        <span class="label">Account</span>
+      </a>
+      <a href="/dashboard/settings"
+         class="<%= it.path === '/dashboard/settings' ? 'on' : '' %>"
+         <%= it.path === '/dashboard/settings' ? 'aria-current=page' : '' %>>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7 1.1V21a2 2 0 11-4 0v-.1A1.6 1.6 0 006 19.4l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.6 1.6 0 003 15H3a2 2 0 110-4h.1A1.6 1.6 0 004.6 6l-.1-.1a2 2 0 112.8-2.8l.1.1A1.6 1.6 0 009 3.6V3a2 2 0 114 0v.1A1.6 1.6 0 0018 4.6l.1-.1a2 2 0 112.8 2.8l-.1.1A1.6 1.6 0 0021 9h0a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>
+        <span class="label">Settings</span>
+      </a>
+      <form method="post" action="/logout" style="margin:6px 0 24px">
+        <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+        <button type="submit" class="side-logout">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          <span class="label">Log out</span>
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button data-side-toggle aria-label="Menu" class="iconbtn">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+
+      <div class="balance-chip" hx-get="/dashboard/partials/balance" hx-trigger="every 20s" hx-swap="innerHTML">
+        <span>Available balance</span>
+        <b class="num" data-watch><%= it.usd(it.bal.available) %></b>
+      </div>
+
+      <div class="topbar__balance"></div>
+
+      <a href="/dashboard/notifications" class="iconbtn" aria-label="Notifications" style="position:relative">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+        <% if (it.unread) { %>
+          <span style="position:absolute;top:-6px;right:-6px;background:var(--down);color:#fff;font-size:.62rem;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:grid;place-items:center;padding:0 4px;border:2px solid var(--bg-base)"><%= it.unread > 99 ? '99+' : it.unread %></span>
+        <% } %>
+      </a>
+
+      <a href="/dashboard/account" class="topbar__user" aria-label="Your account">
+        <div class="avatar"><%= it.initials(it.user.firstName, it.user.lastName) %></div>
+        <div class="user-name">
+          <b><%= it.user.firstName %> <%= it.user.lastName %></b>
+          <span><%= it.user.role === 'admin' ? 'Administrator' : 'Trading account' %></span>
+        </div>
+      </a>
+    </div>
+
+    <main class="content"><%~ it.body %></main>
+  </div>
+</div>
+
+<!-- Mobile bottom navigation bar -->
+<nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+  <a href="/dashboard" class="<%= it.path === '/dashboard' ? 'on' : '' %>" aria-label="Dashboard">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    <span>Home</span>
+  </a>
+  <a href="/dashboard/trade" class="<%= it.path === '/dashboard/trade' ? 'on' : '' %>" aria-label="Trade">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>
+    <span>Trade</span>
+  </a>
+  <a href="/dashboard/deposit" class="<%= it.path === '/dashboard/deposit' ? 'on' : '' %>" aria-label="Deposit">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12l4 4 4-4"/></svg>
+    <span>Deposit</span>
+  </a>
+  <a href="/dashboard/portfolio" class="<%= it.path === '/dashboard/portfolio' ? 'on' : '' %>" aria-label="Portfolio">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+    <span>Portfolio</span>
+  </a>
+  <a href="/dashboard/account" class="<%= (it.path === '/dashboard/account' || it.path.startsWith('/dashboard/account/')) ? 'on' : '' %>" aria-label="Account">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>
+    <span>Account</span>
+  </a>
+</nav>
+<script src="/js/app.js" defer></script>
+<% if (it.site && it.site.smartsuppKey) { %>
+<!-- Smartsupp Live Chat script -->
+<script type="text/javascript">
+var _smartsupp = _smartsupp || {};
+_smartsupp.key = '<%= it.site.smartsuppKey %>';
+window.smartsupp||(function(d) {
+  var s,c,o=smartsupp=function(){ o._.push(arguments)};o._=[];
+  s=d.getElementsByTagName('script')[0];c=d.createElement('script');
+  c.type='text/javascript';c.charset='utf-8';c.async=true;
+  c.src='https://www.smartsuppchat.com/loader.js?';s.parentNode.insertBefore(c,s);
+})(document);
+</script>
+<noscript>Powered by <a href="https://www.smartsupp.com" target="_blank">Smartsupp</a></noscript>
+<% } %>
+</body>
+</html>

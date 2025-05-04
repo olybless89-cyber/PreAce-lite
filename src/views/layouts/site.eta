@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en" data-recaptcha-site-key="<%= it.recaptchaSiteKey %>">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= it.title ? it.title + ' — ' + it.brand.name : it.brand.name + ' — Trade global markets with confidence' %></title>
+<meta name="description" content="<%= it.desc || 'Trade forex, crypto, indices, shares and commodities with live pricing, copy trading and automated strategies.' %>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="icon" href="/img/mark.svg" type="image/svg+xml">
+<meta property="og:title" content="<%= it.brand.name %> — Trade global markets with confidence">
+<meta property="og:type" content="website">
+<script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+<% if (it.recaptchaSiteKey) { %>
+<script src="https://www.google.com/recaptcha/api.js?render=<%= it.recaptchaSiteKey %>"></script>
+<% } %>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="/">
+      <svg class="logo-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#3B7BFF"/>
+        <path d="M8 22L13 13l4 5 3-4 4 8" stroke="#F5B82E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span><%= it.brand.name %></span>
+    </a>
+
+    <div class="nav-right nav-right--mobile">
+      <% if (it.user) { %>
+        <a class="btn btn-primary btn-sm" href="<%= it.user.role === 'admin' ? '/admin' : '/dashboard' %>"><%= it.user.role === 'admin' ? 'Admin console' : 'Open dashboard' %></a>
+      <% } else { %>
+        <a class="btn btn-login btn-sm" href="/login">Log in</a>
+      <% } %>
+      <button class="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="navlinks" data-nav-toggle>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+    </div>
+
+    <div class="nav-backdrop" data-nav-backdrop></div>
+    <nav class="nav-links" id="navlinks">
+      <a class="nav-logo-sm" href="/">
+        <svg class="logo-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="#3B7BFF"/>
+          <path d="M8 22L13 13l4 5 3-4 4 8" stroke="#F5B82E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <%= it.brand.name %>
+      </a>
+      <a href="/markets" <%= it.path?.startsWith('/markets') ? 'aria-current=page' : '' %>>Markets</a>
+      <a href="/copy-trading" <%= it.path === '/copy-trading' ? 'aria-current=page' : '' %>>Copy trading</a>
+      <a href="/plans" <%= it.path === '/plans' ? 'aria-current=page' : '' %>>Plans</a>
+      <a href="/bots" <%= it.path === '/bots' ? 'aria-current=page' : '' %>>Automation</a>
+      <a href="/education" <%= it.path === '/education' ? 'aria-current=page' : '' %>>Education</a>
+      <a href="/contact" <%= it.path === '/contact' ? 'aria-current=page' : '' %>>Contact</a>
+      <div class="nav-links-cta">
+        <% if (it.user) { %>
+          <a class="btn btn-primary btn-sm btn-block" href="<%= it.user.role === 'admin' ? '/admin' : '/dashboard' %>"><%= it.user.role === 'admin' ? 'Admin console' : 'Open dashboard' %></a>
+          <form method="post" action="/logout" class="btn-block">
+            <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+            <button class="btn btn-ghost btn-sm btn-block" type="submit">Log out</button>
+          </form>
+        <% } else { %>
+          <a class="btn btn-primary btn-sm btn-block" href="/register">Open account</a>
+        <% } %>
+      </div>
+    </nav>
+
+    <div class="nav-right nav-right--desktop">
+      <% if (it.user) { %>
+        <a class="btn btn-primary btn-sm" href="<%= it.user.role === 'admin' ? '/admin' : '/dashboard' %>"><%= it.user.role === 'admin' ? 'Admin console' : 'Open dashboard' %></a>
+      <% } else { %>
+        <a class="btn btn-login btn-sm" href="/login">Log in</a>
+        <a class="btn btn-primary btn-sm" href="/register">Open account</a>
+      <% } %>
+    </div>
+  </div>
+</header>
+
+<div class="ticker" hx-get="/partials/ticker" hx-trigger="every 15s" hx-swap="innerHTML">
+  <%~ it.tickerHtml || '' %>
+</div>
+
+<%~ it.body %>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="logo" href="/" style="margin-bottom:14px">
+          <svg class="logo-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="#3B7BFF"/>
+            <path d="M8 22L13 13l4 5 3-4 4 8" stroke="#F5B82E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <%= it.brand.name %>
+        </a>
+        <p class="small" style="max-width:38ch">Multi-asset trading, copy portfolios and automated strategies in one account.</p>
+      </div>
+      <div>
+        <h4>Trade</h4>
+        <ul>
+          <li><a href="/markets/forex">Forex</a></li>
+          <li><a href="/markets/crypto">Cryptocurrency</a></li>
+          <li><a href="/markets/shares">Shares</a></li>
+          <li><a href="/markets/indices">Indices</a></li>
+          <li><a href="/markets/energies">Energies</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Platform</h4>
+        <ul>
+          <li><a href="/copy-trading">Copy trading</a></li>
+          <li><a href="/bots">Automated strategies</a></li>
+          <li><a href="/plans">Investment plans</a></li>
+          <li><a href="/education">Education</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="/about">About</a></li>
+          <li><a href="/contact">Contact</a></li>
+          <li><a href="/legal/terms">Terms</a></li>
+          <li><a href="/legal/privacy">Privacy</a></li>
+          <li><a href="/legal/risk">Risk disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot-base">
+      <p class="risk">
+        Trading leveraged products carries a high level of risk and can result in the loss of all
+        capital. Past performance of any trader, strategy or automated system shown on this site is
+        not a reliable indicator of future results. Only trade with money you can afford to lose,
+        and seek independent advice if you are unsure.
+      </p>
+      <p style="margin-top:14px">© <%= it.brand.year %> <%= it.brand.name %>. All rights reserved.</p>
+    </div>
+  </div>
+</footer>
+
+<script src="/js/app.js" defer></script>
+<% if (it.site && it.site.smartsuppKey) { %>
+<!-- Smartsupp Live Chat -->
+<script type="text/javascript">
+var _smartsupp = _smartsupp || {};
+_smartsupp.key = '<%= it.site.smartsuppKey %>';
+window.smartsupp||(function(d) {
+  var s,c,o=smartsupp=function(){ o._.push(arguments)};o._=[];
+  s=d.getElementsByTagName('script')[0];c=d.createElement('script');
+  c.type='text/javascript';c.charset='utf-8';c.async=true;
+  c.src='https://www.smartsuppchat.com/loader.js?';s.parentNode.insertBefore(c,s);
+})(document);
+</script>
+<noscript>Powered by <a href="https://www.smartsupp.com" target="_blank" rel="noopener">Smartsupp</a></noscript>
+<% } %>
+</body>
+</html>

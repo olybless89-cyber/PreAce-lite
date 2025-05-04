@@ -1,0 +1,23 @@
+{
+  "name": "preace-lite",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "seed": "node src/db/seed.js",
+    "reset-admin": "node src/db/reset-admin.js",
+    "migrate": "node src/db/migrate.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.17",
+    "argon2": "^0.45.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.6.1",
+    "drizzle-orm": "^0.45.2",
+    "eta": "^4.6.0",
+    "hono": "^4.13.1",
+    "nodemailer": "^9.0.5",
+    "postgres": "^3.4.9"
+  }
+}

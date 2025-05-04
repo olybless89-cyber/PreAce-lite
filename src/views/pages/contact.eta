@@ -1,0 +1,30 @@
+<section class="section"><div class="wrap">
+  <div class="grid-contact-split">
+    <div>
+      <span class="eyebrow blue">Contact</span><h1>Talk to us</h1>
+      <p class="lede">Support is staffed around the clock. Account and funding questions are usually answered within the hour.</p>
+      <dl class="kv" style="margin-top:24px;max-width:340px">
+        <dt>Support</dt><dd style="font-family:var(--ff-body)">support@<%= it.domain || 'preace-lite.com' %></dd>
+        <dt>Compliance</dt><dd style="font-family:var(--ff-body)">compliance@<%= it.domain || 'preace-lite.com' %></dd>
+        <dt>Hours</dt><dd style="font-family:var(--ff-body)">24 / 7</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Send a message</h3></div>
+      <% if (it.sent) { %>
+        <div class="notice notice-ok" style="margin-bottom:14px">Message sent — we'll get back to you within the hour.</div>
+      <% } %>
+      <% if (it.error) { %>
+        <div class="notice notice-err" style="margin-bottom:14px"><%= it.error %></div>
+      <% } %>
+      <form method="post" action="/contact" class="recaptcha-form" data-action="contact">
+        <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+        <input type="hidden" name="g-recaptcha-response" class="recaptcha-token">
+        <div class="field"><label for="n">Name</label><input class="input" id="n" name="name" value="<%= it.name || '' %>" placeholder="Your name" required></div>
+        <div class="field"><label for="e">Email</label><input class="input" id="e" name="email" type="email" value="<%= it.email || '' %>" placeholder="you@example.com" required></div>
+        <div class="field"><label for="m">Message</label><textarea class="input" id="m" name="message" rows="5" placeholder="How can we help?" required><%= it.message || '' %></textarea></div>
+        <button class="btn btn-primary btn-block" type="submit">Send message</button>
+      </form>
+    </div>
+  </div>
+</div></section>

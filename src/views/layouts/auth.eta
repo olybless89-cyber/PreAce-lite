@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" data-recaptcha-site-key="<%= it.recaptchaSiteKey %>">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= it.title %> — <%= it.brand.name %></title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="icon" href="/img/mark.svg" type="image/svg+xml">
+<% if (it.recaptchaSiteKey) { %>
+<script src="https://www.google.com/recaptcha/api.js?render=<%= it.recaptchaSiteKey %>"></script>
+<% } %>
+</head>
+<body class="auth-page">
+<div class="auth-shell">
+  <div class="auth-glow"></div>
+  <div class="auth-card-wrap">
+    <a class="logo" href="/" style="justify-content:center;margin-bottom:24px">
+      <svg class="logo-mark" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#3B7BFF"/><path d="M8 22L13 13l4 5 3-4 4 8" stroke="#F5B82E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span><%= it.brand.name %></span>
+    </a>
+    <%~ it.body %>
+  </div>
+</div>
+<script src="/js/app.js" defer></script>
+<% if (it.site && it.site.smartsuppKey) { %>
+<!-- Smartsupp Live Chat script -->
+<script type="text/javascript">
+var _smartsupp = _smartsupp || {};
+_smartsupp.key = '<%= it.site.smartsuppKey %>';
+window.smartsupp||(function(d) {
+  var s,c,o=smartsupp=function(){ o._.push(arguments)};o._=[];
+  s=d.getElementsByTagName('script')[0];c=d.createElement('script');
+  c.type='text/javascript';c.charset='utf-8';c.async=true;
+  c.src='https://www.smartsuppchat.com/loader.js?';s.parentNode.insertBefore(c,s);
+})(document);
+</script>
+<noscript>Powered by <a href="https://www.smartsupp.com" target="_blank">Smartsupp</a></noscript>
+<% } %>
+</body>
+</html>
