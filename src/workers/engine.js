@@ -16,26 +16,34 @@ const SYMBOLS = (process.env.PRICE_SYMBOLS ||
 
 /* ---------- 1. prices ---------- */
 export async function pollPrices() {
-  try {
-    const res = await fetch('https://api.binance.com/api/v3/ticker/24hr', { signal: AbortSignal.timeout(9000) });
-    if (!res.ok) throw new Error(`binance ${res.status}`);
-    const all = await res.json();
-    const want = new Set(SYMBOLS);
-    const rows = all.filter((t) => want.has(t.symbol));
-    if (!rows.length) throw new Error('no matching symbols');
+  // PRICE_PROVIDER=coingecko flips the order when Binance is geo-blocked.
+  const first = process.env.PRICE_PROVIDER === 'coingecko' ? pollCoinGecko() : pollBinance();
+  return first;
+}
 
-    for (const t of rows) {
-      await sql`
-        insert into prices (symbol, price, change_24h, source, updated_at)
-        values (${t.symbol}, ${t.lastPrice}, ${t.priceChangePercent}, 'binance', now())
-        on conflict (symbol) do update
-          set price = excluded.price, change_24h = excluded.change_24h, updated_at = now()`;
+function pollBinance() {
+  return (async () => {
+    try {
+      const res = await fetch('https://api.binance.com/api/v3/ticker/24hr', { signal: AbortSignal.timeout(9000) });
+      if (!res.ok) throw new Error(`binance ${res.status}`);
+      const all = await res.json();
+      const want = new Set(SYMBOLS);
+      const rows = all.filter((t) => want.has(t.symbol));
+      if (!rows.length) throw new Error('no matching symbols');
+
+      for (const t of rows) {
+        await sql`
+          insert into prices (symbol, price, change_24h, source, updated_at)
+          values (${t.symbol}, ${t.lastPrice}, ${t.priceChangePercent}, 'binance', now())
+          on conflict (symbol) do update
+            set price = excluded.price, change_24h = excluded.change_24h, updated_at = now()`;
+      }
+      return rows.length;
+    } catch (e) {
+      console.warn('[prices] binance failed, trying coingecko:', e.message);
+      return pollCoinGecko();
     }
-    return rows.length;
-  } catch (e) {
-    console.warn('[prices] binance failed, trying coingecko:', e.message);
-    return pollCoinGecko();
-  }
+  })();
 }
 
 const CG = { BTCUSDT: 'bitcoin', ETHUSDT: 'ethereum', XRPUSDT: 'ripple', SOLUSDT: 'solana',
@@ -45,7 +53,11 @@ async function pollCoinGecko() {
   try {
     const ids = SYMBOLS.map((s) => CG[s]).filter(Boolean).join(',');
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(9000) });
+    const key = process.env.COINGECKO_API_KEY;
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(9000),
+      headers: key ? { 'x-cg-demo-api-key': key } : undefined,
+    });
     if (!res.ok) throw new Error(`coingecko ${res.status}`);
     const data = await res.json();
     let n = 0;
@@ -214,23 +226,44 @@ export async function runAccrual() {
 }
 
 /* ---------- scheduler ---------- */
+const MAX_BACKOFF_MS = 15 * 60 * 1000;
+
 export function startEngine() {
-  const every = Number(process.env.PRICE_POLL_MS || 15000);
+  const every = Math.max(Number(process.env.PRICE_POLL_MS || 15000), 5000);
   let busy = false;
+  let failStreak = 0;
+  let lastAttempt = 0;
 
   const tick = async () => {
     if (busy) return;                 // never let two ticks overlap
     busy = true;
     try {
-      await pollPrices();
-      await runMarket();
+      const n = await pollPrices();
+      if (!n) {
+        // Both providers failed (binance geo-blocked / coingecko rate-limited).
+        failStreak++;
+      } else {
+        failStreak = 0;               // recovered — return to normal cadence
+        await runMarket();
+        if (lastAttempt > 0) {
+          console.log(`[prices] recovered after ${lastAttempt} failed attempt${lastAttempt > 1 ? 's' : ''}`);
+          lastAttempt = 0;
+        }
+      }
     } catch (e) {
+      failStreak++;
       console.error('[engine] tick failed:', e.message);
     } finally { busy = false; }
+
+    lastAttempt = failStreak;
+    // Proportional backoff: after consecutive failures, wait longer
+    // (2^n × base, capped at 15 min) so a geo-blocked or rate-limited
+    // provider isn't hammered every few seconds. Resets on success.
+    const delay = Math.min(every * 2 ** failStreak, MAX_BACKOFF_MS);
+    setTimeout(tick, delay);
   };
 
   tick();
-  setInterval(tick, every);
   setInterval(() => runAccrual().catch((e) => console.error('[accrual]', e.message)), 60000);
-  console.log(`[engine] running — prices every ${every / 1000}s, accrual every 60s`);
+  console.log(`[engine] running — prices every ${every / 1000}s (+backoff ×2^n up to ${MAX_BACKOFF_MS / 60000}m), accrual every 60s`);
 }
