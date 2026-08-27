@@ -3,11 +3,21 @@
     <p class="small" style="margin:4px 0 0">Every holding you have, valued at live market prices, on one page.</p></div>
 </div>
 
+<% if (it.bal && it.bal.isRecovery) { %>
+  <div class="w-banner w-banner--recovery" role="status" style="margin-bottom:20px">
+    <span class="w-banner__dot"></span>
+    <div><b>Recovery / test account</b>
+      <span class="small">Portfolio figures below are recovery snapshot display data, not verified financial history.</span></div>
+  </div>
+<% } %>
+
 <div class="grid g4" style="margin-bottom:22px">
   <div class="stat">
-    <div class="stat-k">Total equity</div>
-    <div class="stat-v"><%= it.usd(it.pf.equity + it.spotValue) %></div>
-    <div class="stat-sub">Cash, locked capital, plans and spot positions</div>
+    <div class="stat-k"><%= it.bal && it.bal.isRecovery ? 'Display portfolio value' : 'Total equity' %></div>
+    <div class="stat-v">
+      <%= it.bal && it.bal.isRecovery ? it.usd(it.bal.displayTotal) : it.usd(it.pf.equity + it.spotValue) %>
+    </div>
+    <div class="stat-sub"><%= it.bal && it.bal.isRecovery ? 'Recovery snapshot — record ' + it.bal.snapshot.id : 'Cash, locked capital, plans and spot positions' %></div>
   </div>
   <div class="stat">
     <div class="stat-k">Available</div>
@@ -25,6 +35,33 @@
     <div class="stat-sub"><%= it.pf.activePlans %> plans · <%= it.pf.openTrades %> copy trades</div>
   </div>
 </div>
+
+<% if (it.bal && it.bal.assets.length) { %>
+  <div class="w-card" style="margin-bottom:22px">
+    <div class="w-card__head">
+      <h2 class="w-card__title">Asset allocation</h2>
+      <a class="w-card__link" href="/dashboard/activity">Statement <%~ it.icon('arrowR', 13) %></a>
+    </div>
+    <div class="w-assets">
+      <% it.bal.assets.forEach(function(a){ %>
+        <% const pct = it.bal.displayTotal > 0 ? (a.valueUsd / it.bal.displayTotal) * 100 : 0; %>
+        <div class="w-asset" style="cursor:default">
+          <span class="w-asset__icon" style="--acc:<%= a.color %>"><span class="w-asset__letter"><%= a.ticker.slice(0,1) %></span></span>
+          <span class="w-asset__names">
+            <b class="w-asset__name"><%= a.name %></b>
+            <span class="w-asset__ticker"><%= a.ticker %> · <%= pct.toFixed(1) %>%</span>
+          </span>
+          <span class="w-asset__vals">
+            <b class="w-asset__usd"><%= it.usd(a.valueUsd) %></b>
+            <% if (a.qty !== null && a.qty !== undefined) { %>
+              <span class="w-asset__qty"><%= it.num(a.qty, 6) %> <%= a.ticker %></span>
+            <% } %>
+          </span>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+<% } %>
 
 <div class="grid grid-half" style="margin-bottom:22px">
   <div class="card">

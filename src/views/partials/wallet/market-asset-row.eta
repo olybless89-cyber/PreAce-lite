@@ -1,0 +1,16 @@
+<%/* MarketAssetRow — one market row with icon, name, ticker, a sparkline,
+      the live price and the signed 24h change. */%>
+<a class="w-market" href="/dashboard/trade?sym=<%= it.market.pair %>">
+  <span class="w-asset__icon w-asset__icon--sm" style="--acc:<%= it.market.color %>">
+    <span class="w-asset__letter"><%= it.market.ticker.slice(0,1) %></span>
+  </span>
+  <span class="w-asset__names">
+    <b class="w-asset__name"><%= it.market.name %></b>
+    <span class="w-asset__ticker"><%= it.market.ticker %></span>
+  </span>
+  <span class="w-market__spark" aria-hidden="true"><%~ it.market.spark %></span>
+  <span class="w-market__vals">
+    <b class="w-asset__usd"><%= it.fmt.usd(it.market.price) %></b>
+    <span class="w-market__chg <%= it.market.change >= 0 ? 'up' : 'down' %>"><%= it.fmt.pct(it.market.change) %></span>
+  </span>
+</a>

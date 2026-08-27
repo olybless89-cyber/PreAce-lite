@@ -957,7 +957,8 @@ code.input{
 /* ========== Touch-friendly minimum tap targets ========== */
 @media (max-width: 900px) {
   .btn, .btn-primary, .btn-quiet, .btn-ghost, .btn-danger { min-height: 44px; }
-  .btn-sm { min-height: 38px; }
+  .btn-sm { min-height: 42px; padding-block: 10px; }
+  .w-action__btn { width: 56px; height: 56px; }
   .iconbtn { width: 42px; height: 42px; }
   .side-grp > a, .side-logout { min-height: 44px; }
   .input, select.input, textarea.input { min-height: 46px; font-size: 1rem; }
@@ -1113,9 +1114,6 @@ code.input{
 .auth-switch{margin-top:var(--s-5);color:var(--ink-3)}
 .auth-switch a{color:var(--blue-hi);font-weight:600}
 .auth-switch a:hover{color:var(--yellow-hi)}
-/* Keep the reCAPTCHA badge visible but away from the live chat */
-.grecaptcha-badge{visibility:visible!important;opacity:.7;transition:opacity .2s var(--ease)}
-.grecaptcha-badge:hover{opacity:1}
 .input-icon{position:relative}
 .input-icon svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ink-4);pointer-events:none}
 .input-icon .input{padding-left:42px}
@@ -1155,3 +1153,268 @@ code.input{
 /* admin user page actions + danger text */
 .action-box{border-top:1px solid var(--line-soft)}
 .text-danger{color:var(--down)}
+
+/* ==========================================================================
+   WALLET DASHBOARD — component layer
+   Premium dark navy fintech. Primary bg ~#07112B–#0B1630, cards ~#111D3A–
+   #172342, accent ~#2878FF. All values are design tokens so they can be
+   retuned globally.
+   ========================================================================== */
+:root{
+  --w-bg:#07112B; --w-bg2:#0B1630;
+  --w-card:#111D3A; --w-card2:#172342; --w-card3:#1B2A4F;
+  --w-line:rgba(148,163,199,.14); --w-line2:rgba(148,163,199,.08);
+  --w-accent:#2878FF; --w-accent2:#2F80FF; --w-accent-ghost:rgba(47,128,255,.16);
+  --w-ink:#F5F8FF; --w-ink2:#A7B4D0; --w-ink3:#6F7FA3; --w-ink4:#4C5A7E;
+  --w-up:#16C784; --w-down:#F0495C;
+  --w-round:20px; --w-round-sm:14px;
+  --w-shadow:0 18px 46px -22px rgba(0,0,0,.72),0 2px 8px rgba(0,0,0,.35);
+  --w-shadow-accent:0 14px 34px -12px rgba(47,128,255,.55);
+  --w-shadow-pop:0 22px 70px -18px rgba(0,0,0,.85),0 8px 24px rgba(0,0,0,.5);
+  --w-ff:'Sora',system-ui,sans-serif;
+  --w-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+.w-dash{display:flex;flex-direction:column;gap:14px;max-width:560px;margin-inline:auto}
+.card--dark{
+  background:linear-gradient(165deg,var(--w-card2),var(--w-card) 78%);
+  border:1px solid var(--w-line);border-radius:var(--w-round);
+  box-shadow:var(--w-shadow);
+}
+
+/* ---- recovery / test banner (unmistakable while staging) ---- */
+.w-banner{
+  display:flex;align-items:flex-start;gap:11px;
+  padding:11px 14px;border-radius:var(--w-round-sm);
+  font-size:.78rem;line-height:1.5;color:var(--w-ink2);
+  border:1px solid var(--w-line);background:var(--w-card);
+}
+.w-banner b{color:var(--w-ink);display:block;letter-spacing:-.01em}
+.w-banner .small{color:var(--w-ink3)}
+.w-banner--recovery{
+  border-color:rgba(245,165,36,.4);
+  background:linear-gradient(180deg,rgba(245,165,36,.10),rgba(245,165,36,.03));
+}
+.w-banner--recovery b{color:var(--warn)}
+.w-banner__dot{flex:none;width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--warn);
+  box-shadow:0 0 0 4px rgba(245,165,36,.18);animation:pulse 2.4s infinite}
+.w-banner--inline{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;font-size:.68rem;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--warn);margin:0}
+
+/* ---- balance header ---- */
+.w-balance{
+  position:relative;padding:22px 20px 18px;overflow:hidden;color:var(--w-ink)
+}
+.w-balance::before{
+  content:'';position:absolute;inset:0 0 auto 0;height:2px;
+  background:linear-gradient(90deg,var(--w-accent2),rgba(47,128,255,.12) 45%,transparent);
+}
+.w-balance::after{
+  content:'';position:absolute;width:260px;height:260px;border-radius:50%;
+  right:-90px;top:-110px;pointer-events:none;
+  background:radial-gradient(circle,rgba(47,128,255,.22),transparent 62%);
+}
+.w-balance>*{position:relative;z-index:1}
+.w-balance__top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.w-balance__label{display:flex;align-items:center;gap:9px}
+.w-balance__label>span{font-size:.7rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--w-ink3)}
+.w-ico-btn{
+  display:inline-grid;place-items:center;width:28px;height:28px;border-radius:9px;
+  background:rgba(255,255,255,.07);border:1px solid var(--w-line);color:var(--w-ink2);cursor:pointer;
+  transition:background .16s var(--ease),color .16s var(--ease),border-color .16s var(--ease)
+}
+.w-ico-btn:hover{background:var(--w-accent-ghost);border-color:rgba(47,128,255,.4);color:var(--w-ink)}
+.w-ico-btn--ghost{background:transparent;border-color:transparent}
+.w-ico-btn--ghost:hover{background:var(--w-accent-ghost);border-color:transparent;color:var(--w-ink)}
+.w-ico-btn--xs{width:20px;height:20px;border-radius:7px;background:transparent;color:var(--w-ink4)}
+.w-ico-btn--xs:hover{color:var(--w-ink2);background:rgba(255,255,255,.06)}
+.w-balance__amt{
+  font-family:var(--w-ff);font-weight:800;font-size:clamp(2rem,7vw,2.6rem);
+  letter-spacing:-.045em;line-height:1.05;font-variant-numeric:tabular-nums
+}
+.w-balance__equiv{display:flex;align-items:center;gap:7px;margin-top:7px;
+  font-size:.85rem;color:var(--w-ink3);font-family:var(--w-mono)}
+.w-balance.is-hidden .w-balance__amt{letter-spacing:.24em;font-size:clamp(1.5rem,5vw,2rem)}
+.w-balance__btcbar{display:flex;align-items:center;gap:10px;margin-top:16px}
+.w-btcbar-track{flex:1;height:4px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.w-btcbar-fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--w-accent2),#5C94FF)}
+.w-btcbar-cap{font-family:var(--w-mono);font-size:.62rem;font-weight:700;letter-spacing:.12em;color:var(--w-ink3)}
+
+/* ---- quick actions ---- */
+.w-actions{display:flex;justify-content:space-between;gap:8px;padding:4px 2px}
+.w-action{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;color:var(--w-ink2);
+  transition:transform .16s var(--ease),color .16s var(--ease)}
+.w-action:hover{color:var(--w-ink);transform:translateY(-2px)}
+.w-action:active{transform:translateY(0) scale(.96)}
+.w-action__btn{
+  width:58px;height:58px;border-radius:50%;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(180deg,var(--w-accent2),var(--w-accent));
+  box-shadow:var(--w-shadow-accent),inset 0 1px 0 rgba(255,255,255,.22);
+  border:1px solid rgba(255,255,255,.12);
+  transition:box-shadow .16s var(--ease),filter .16s var(--ease)
+}
+.w-action:hover .w-action__btn{filter:brightness(1.1);box-shadow:0 18px 38px -12px rgba(47,128,255,.7),inset 0 1px 0 rgba(255,255,255,.25)}
+.w-action:focus-visible{outline:2px solid var(--w-accent2);outline-offset:3px;border-radius:12px}
+.w-action__label{font-size:.76rem;font-weight:600;letter-spacing:.02em}
+@media (min-width:900px){.w-action__btn{width:62px;height:62px}}
+
+/* ---- generic wallet card ---- */
+.w-card{
+  background:linear-gradient(165deg,var(--w-card2),var(--w-card) 80%);
+  border:1px solid var(--w-line);border-radius:var(--w-round);
+  box-shadow:var(--w-shadow);overflow:hidden
+}
+.w-card__head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 18px 4px}
+.w-card__title{font-family:var(--w-ff);font-size:1.02rem;font-weight:700;letter-spacing:-.02em;color:var(--w-ink);margin:0}
+.w-card__link{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;color:var(--w-accent2);
+  transition:color .15s var(--ease)}
+.w-card__link:hover{color:#7FB0FF}
+.w-card__foot{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 18px;
+  font-size:.82rem;font-weight:600;color:var(--w-ink2);border-top:1px solid var(--w-line2);
+  transition:color .16s var(--ease),background .16s var(--ease)}
+.w-card__foot:hover{color:var(--w-ink);background:rgba(255,255,255,.03)}
+
+/* ---- asset rows ---- */
+.w-assets{display:flex;flex-direction:column;padding:6px 0}
+.w-assets__empty{padding:26px 18px;text-align:center;font-size:.84rem;color:var(--w-ink3)}
+.w-asset{
+  display:flex;align-items:center;gap:13px;padding:13px 18px;color:var(--w-ink);
+  transition:background .15s var(--ease)
+}
+.w-asset+.w-asset,.w-asset[href]{border-top:1px solid var(--w-line2)}
+.w-asset:hover{background:rgba(255,255,255,.035)}
+.w-asset>svg{flex:none;color:var(--w-ink4)}                       /* trailing chevron */
+.w-asset__icon{
+  --acc:#7E8FBF;flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--acc) 22%,transparent);border:1px solid color-mix(in srgb,var(--acc) 42%,transparent);
+  box-shadow:inset 0 0 0 4px rgba(255,255,255,.03)
+}
+.w-asset__icon--sm{width:34px;height:34px}
+.w-asset__letter{font-family:var(--w-ff);font-weight:800;font-size:.9rem;color:var(--acc);letter-spacing:.02em}
+.w-asset__names{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}
+.w-asset__name{font-size:.93rem;font-weight:600;color:var(--w-ink);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-asset__ticker{font-family:var(--w-mono);font-size:.68rem;letter-spacing:.1em;color:var(--w-ink4);text-transform:uppercase}
+.w-asset__vals{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3}
+.w-asset__usd{font-size:.92rem;font-weight:700;color:var(--w-ink);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.w-asset__qty{font-family:var(--w-mono);font-size:.7rem;color:var(--w-ink3)}
+
+/* ---- referral card ---- */
+.w-referral{
+  position:relative;display:flex;align-items:center;gap:15px;padding:16px 42px 16px 17px;
+  background:linear-gradient(140deg,rgba(47,128,255,.16),rgba(47,128,255,.04) 60%),var(--w-card);
+  border:1px solid rgba(47,128,255,.3);border-radius:var(--w-round);overflow:hidden
+}
+.w-referral::after{content:'';position:absolute;width:180px;height:180px;border-radius:50%;
+  right:-70px;top:-80px;background:radial-gradient(circle,rgba(47,128,255,.22),transparent 62%);pointer-events:none}
+.w-referral__art{
+  flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(180deg,var(--w-accent2),var(--w-accent));
+  box-shadow:var(--w-shadow-accent)
+}
+.w-referral__body{flex:1;min-width:0}
+.w-referral__body h3{font-family:var(--w-ff);font-size:.98rem;font-weight:700;color:var(--w-ink);margin:0;letter-spacing:-.01em}
+.w-referral__body p{margin:3px 0 0;font-size:.78rem;color:var(--w-ink2);line-height:1.45}
+.w-referral__pending{display:inline-block;margin-top:6px;font-size:.66rem;font-weight:600;letter-spacing:.02em;color:var(--w-amber,#f0b429);border:1px solid rgba(240,180,41,.35);border-radius:999px;padding:2px 9px}
+.w-referral__body b{color:var(--w-accent2);font-weight:700}
+.w-referral__close{
+  position:absolute;top:11px;right:11px;width:26px;height:26px;border-radius:9px;display:grid;place-items:center;
+  background:rgba(255,255,255,.06);border:1px solid var(--w-line);color:var(--w-ink3);cursor:pointer;
+  transition:background .15s var(--ease),color .15s var(--ease)
+}
+.w-referral__close:hover{background:var(--w-accent-ghost);color:var(--w-ink)}
+
+/* ---- market overview ---- */
+.w-markets{display:flex;flex-direction:column;padding:6px 0}
+.w-market{
+  display:flex;align-items:center;gap:13px;padding:13px 18px;color:var(--w-ink);
+  transition:background .15s var(--ease)
+}
+.w-market+.w-market{border-top:1px solid var(--w-line2)}
+.w-market:hover{background:rgba(255,255,255,.035)}
+.w-market__spark{flex:none;display:grid;place-items:center;margin-left:auto;margin-right:14px}
+.w-market__vals{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;min-width:86px}
+.w-market__chg{font-family:var(--w-mono);font-size:.72rem;font-weight:700}
+.w-market__chg.up{color:var(--w-up)}
+.w-market__chg.down{color:var(--w-down)}
+
+/* ---- recent activity timeline ---- */
+.w-timeline{display:flex;flex-direction:column;padding:6px 0}
+.w-tl{display:flex;align-items:center;gap:13px;padding:12px 18px}
+.w-tl+.w-tl{border-top:1px solid var(--w-line2)}
+.w-tl__dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--w-ink4)}
+.w-tl__dot.up{background:var(--w-up)}.w-tl__dot.down{background:var(--w-down)}
+.w-tl__body{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.w-tl__body b{font-size:.87rem;font-weight:600;color:var(--w-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-tl__amt{font-family:var(--w-mono);font-size:.84rem;font-weight:700;font-variant-numeric:tabular-nums}
+.w-tl__amt.up{color:var(--w-up)}.w-tl__amt.down{color:var(--w-down)}
+
+/* ---- user menu ---- */
+.w-usermenu{position:relative}
+.w-usermenu__btn{
+  display:flex;align-items:center;gap:6px;padding:3px 6px 3px 3px;border-radius:99px;cursor:pointer;
+  background:rgba(255,255,255,.05);border:1px solid var(--w-line);
+  transition:background .16s var(--ease),border-color .16s var(--ease)
+}
+.w-usermenu__btn:hover{background:rgba(255,255,255,.09);border-color:rgba(47,128,255,.4)}
+.w-usermenu__btn .avatar{width:34px;height:34px;font-size:.72rem}
+.w-usermenu__chev{display:grid;place-items:center;color:var(--w-ink3);transition:transform .18s var(--ease)}
+.w-usermenu.open .w-usermenu__chev{transform:rotate(180deg)}
+.w-usermenu__panel{
+  position:absolute;right:0;top:calc(100% + 9px);width:264px;z-index:130;
+  background:linear-gradient(170deg,var(--w-card3),var(--w-card));
+  border:1px solid var(--w-line);border-radius:16px;box-shadow:var(--w-shadow-pop);
+  padding:8px;overflow:hidden
+}
+.w-usermenu__me{display:flex;align-items:center;gap:11px;padding:10px 10px 12px;border-bottom:1px solid var(--w-line2);margin-bottom:6px}
+.w-usermenu__me .avatar{width:38px;height:38px}
+.w-usermenu__name{min-width:0;line-height:1.25}
+.w-usermenu__name b{display:block;font-size:.88rem;font-weight:600;color:var(--w-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-usermenu__name span{font-size:.72rem;color:var(--w-ink3)}
+.w-usermenu__item{
+  display:flex;align-items:center;gap:11px;width:100%;padding:10px 11px;border-radius:10px;
+  font-size:.86rem;font-weight:500;color:var(--w-ink2);text-align:left;cursor:pointer;
+  transition:background .14s var(--ease),color .14s var(--ease)
+}
+.w-usermenu__item svg{color:var(--w-ink4)}
+.w-usermenu__item:hover{background:var(--w-accent-ghost);color:var(--w-ink)}
+.w-usermenu__item:hover svg{color:var(--w-accent2)}
+.w-usermenu__logout{border-top:1px solid var(--w-line2);margin-top:6px;padding-top:6px}
+.w-usermenu__logout .w-usermenu__item{color:var(--w-down)}
+.w-usermenu__logout .w-usermenu__item:hover{background:rgba(240,73,92,.1)}
+.w-usermenu__logout .w-usermenu__item svg{color:var(--w-down)}
+
+/* ---- responsive: desktop widens the column, keeps the visual language ---- */
+@media (min-width:900px){
+  .w-dash{max-width:720px}
+}
+@media (min-width:1280px){
+  .app:has(.w-dash){grid-template-columns:248px minmax(0,1fr)}
+}
+/* Ultra-compact phones (≈320–399px): keep the market row's name column
+   readable — the fixed-size sparkline + price min-width otherwise crush it
+   to ~13px. Shrink the vector spark (viewBox scales) and tighten gaps. */
+@media (max-width:399px){
+  .w-dash{gap:12px}
+  .w-balance{padding:18px 16px 16px}
+  .w-balance__amt{font-size:clamp(1.9rem,9.5vw,2.4rem)}
+  .w-asset{padding:12px 14px}
+  .w-market{padding:12px 14px;gap:10px}
+  .w-market__spark{margin-right:8px}
+  .w-market__spark svg{width:42px;height:16px}
+  .w-market__vals{min-width:72px}
+  .w-assets__empty{padding:22px 14px}
+}
+
+/* Touch targets: tiny icon buttons keep their subtle 20–28px visuals but
+   get a ≥40px hit area via an invisible extended pseudo-element. */
+.w-ico-btn{position:relative}
+.w-ico-btn::after{content:'';position:absolute;inset:-8px;border-radius:inherit}
+.w-ico-btn--xs::after{inset:-10px}
+.w-referral__close{position:absolute;top:11px;right:11px}
+.w-referral__close::before{content:'';position:absolute;inset:-9px}
+
+/* safe-area-aware bottom nav (mobile) is already handled above in
+   .mobile-bottom-nav — the wallet layer re-colors it to the accent */
+.mobile-bottom-nav a.on{color:var(--w-accent2)}
+.mobile-bottom-nav a.on svg{filter:drop-shadow(0 0 6px rgba(47,128,255,.55))}
+.mobile-bottom-nav a:not(.on):hover{color:var(--w-ink2)}

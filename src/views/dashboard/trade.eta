@@ -13,28 +13,28 @@
     <div class="card-head"><h3>Place order</h3><span class="badge badge-live">Market</span></div>
     <form method="post" action="/dashboard/trade">
       <input type="hidden" name="_csrf" value="<%= it.csrf %>">
-      <input type="hidden" name="action" value="buy">
+      <input type="hidden" name="action" value="<%= it.action %>">
       <div class="field">
         <label for="sym">Market</label>
         <select class="input" id="sym" name="symbol" data-prices='<%~ JSON.stringify(it.prices.map(p => ({s:p.pair,k:p.symbol,px:p.price,chg:p.change}))) %>'>
           <% it.prices.forEach(function(p){ %>
-            <option value="<%= p.pair %>"><%= p.symbol %> · <%= it.usd(p.price,2) %> <span class="muted">(<%= p.change >= 0 ? '+' : '' %><%= Number(p.change).toFixed(2) %>%)</span></option>
+            <option value="<%= p.pair %>" <%= it.sym === p.pair ? 'selected' : '' %>><%= p.symbol %> · <%= it.usd(p.price,2) %> <span class="muted">(<%= p.change >= 0 ? '+' : '' %><%= Number(p.change).toFixed(2) %>%)</span></option>
           <% }) %>
         </select>
       </div>
       <div class="field">
-        <label for="amt">Amount (USD)</label>
+        <label for="amt"><%= it.action === 'sell' ? 'Amount to sell (USD)' : 'Amount (USD)' %></label>
         <input class="input num" id="amt" name="amount" type="number" step="0.01" min="1" placeholder="100.00" required>
       </div>
       <div class="small muted" id="est" style="margin:-4px 0 14px"></div>
-      <button class="btn btn-primary btn-block">Buy at market</button>
-      <p class="small muted" style="margin-top:10px">You pay from your available balance. The asset is held as an open position you can close any time.</p>
+      <button class="btn <%= it.action === 'sell' ? 'btn-danger' : 'btn-primary' %> btn-block"><%= it.action === 'sell' ? 'Sell at market' : 'Buy at market' %></button>
+      <p class="small muted" style="margin-top:10px"><%= it.action === 'sell' ? 'Selling closes an open position. Confirm the quantity against your open position at the live price.' : 'You pay from your available balance. The asset is held as an open position you can close any time.' %></p>
     </form>
   </div>
 
   <div class="card card--flush trade-chart-card">
     <div class="card-head">
-      <h3 id="chart-sym">BTCUSD</h3><span class="badge badge-live">Live</span>
+      <h3 id="chart-sym"><%= it.sym || 'BTCUSD' %></h3><span class="badge badge-live">Live</span>
     </div>
     <div style="height:100%;min-height:0">
       <div class="tradingview-widget-container" style="height:100%">

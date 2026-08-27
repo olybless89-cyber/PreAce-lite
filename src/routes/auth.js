@@ -5,14 +5,13 @@ import { db } from '../db/client.js';
 import { users, ledger, notifications } from '../db/schema.js';
 import { hash, verify, createSession, destroySession, csrfToken, throttle } from '../lib/auth.js';
 import { render, eta } from '../lib/view.js';
-import { verifyRecaptcha } from '../lib/recaptcha.js';
 import { mailWelcome } from '../lib/mail.js';
 import * as fmt from '../lib/money.js';
 
 export const auth = new Hono();
 
 const shell = (c, view, data = {}, title = '') =>
-  render(c, 'layouts/auth', { body: eta.render(view, { ...fmt, csrf: csrfToken(c), recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || '', ...data }), title });
+  render(c, 'layouts/auth', { body: eta.render(view, { ...fmt, csrf: csrfToken(c), ...data }), title });
 
 /* Already-authenticated users go straight to their area. */
 const homeFor = (u) => (u?.role === 'admin' ? '/admin' : '/dashboard');
@@ -27,9 +26,6 @@ auth.post('/login', throttle(8), async (c) => {
   const b = c.get('body');
   const email = String(b.email || '').trim().toLowerCase();
   const back = (v) => shell(c, 'pages/login', { error: v, email, next: b.next || '' }, 'Log in');
-
-  const recaptcha = await verifyRecaptcha(b['g-recaptcha-response']);
-  if (!recaptcha.ok) return back(recaptcha.error);
 
   const [u] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   // Same message either way — don't confirm which emails exist. The reason is
@@ -63,9 +59,6 @@ auth.post('/admin/login', throttle(8), async (c) => {
   const email = String(b.email || '').trim().toLowerCase();
   const back = (v) => shell(c, 'pages/admin-login', { error: v, email, next: b.next || '' }, 'Admin sign in');
 
-  const recaptcha = await verifyRecaptcha(b['g-recaptcha-response']);
-  if (!recaptcha.ok) return back(recaptcha.error);
-
   const [u] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   // One generic message — never reveal whether the account exists or isn't staff.
   if (!u || u.role !== 'admin' || !(await verify(u.passwordHash, String(b.password || '')))) {
@@ -98,9 +91,6 @@ auth.post('/register', throttle(6), async (c) => {
     phone: String(b.phone || '').trim(),
   };
   const back = (e) => shell(c, 'pages/register', { error: e, f }, 'Open an account');
-
-  const recaptcha = await verifyRecaptcha(b['g-recaptcha-response']);
-  if (!recaptcha.ok) return back(recaptcha.error);
 
   if (!f.firstName || !f.lastName) return back('Enter your first and last name.');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(f.email)) return back('Enter a valid email address.');

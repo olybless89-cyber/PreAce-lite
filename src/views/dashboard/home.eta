@@ -1,0 +1,63 @@
+<%/* =================================================================
+   Wallet dashboard (landing page for signed-in users)
+   Data comes from the BalanceService via the /dashboard route.
+   Balance KINDS: real_balance | recovery_display_balance | test_balance
+   — never mixed, always labelled on recovery/test accounts.
+   ================================================================= */%>
+
+<div class="w-dash">
+
+  <% if (it.bal.isRecovery) { %>
+    <div class="w-banner w-banner--recovery" role="status">
+      <span class="w-banner__dot"></span>
+      <div>
+        <b>Recovery / test account</b>
+        <span class="small">
+          Balance shown is a recovery snapshot — display data only, not verified financial history.
+        </span>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (it.notice) { %><%~ it.notice %><% } %>
+
+  <%~ include('../partials/wallet/balance-header', {
+         amount: it.fmt.usd(it.bal.displayTotal),
+         equivText: it.bal.approxcBtc ? '≈ ' + it.bal.approxcBtc.toLocaleString('en-US', { maximumFractionDigits: 6 }) + ' BTC' : 'No BTC price available',
+         btcPct: it.btcPct,
+         badge: it.bal.isRecovery ? '<span class="w-banner w-banner--inline">Recovery snapshot</span>' : ''
+       }) %>
+
+  <%~ include('../partials/wallet/quick-actions', { items: it.quickActions }) %>
+
+  <%~ include('../partials/wallet/asset-card', { rows: it.bal.assets, footHref: '/dashboard/portfolio', footLabel: 'View all assets', fmt: it.fmt }) %>
+
+  <%~ include('../partials/wallet/referral-card') %>
+
+  <%~ include('../partials/wallet/market-overview', { rows: it.marketRows, fmt: it.fmt }) %>
+
+  <div class="w-card">
+    <div class="w-card__head">
+      <h2 class="w-card__title">Recent activity</h2>
+      <a class="w-card__link" href="/dashboard/activity">See all <%~ it.icon('arrowR', 13) %></a>
+    </div>
+    <% if (it.recent.length) { %>
+      <div class="w-timeline">
+        <% it.recent.forEach(function(r){ %>
+          <div class="w-tl">
+            <span class="w-tl__dot <%= it.dir(Number(r.amount)) %>"></span>
+            <div class="w-tl__body">
+              <b><%= r.title %></b>
+              <span class="small muted"><%= it.ago(r.createdAt) %></span>
+            </div>
+            <span class="w-tl__amt <%= it.dir(Number(r.amount)) %>"><%= it.signedUsd(Number(r.amount)) %></span>
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <div class="w-assets__empty">Your activity appears here as it happens.</div>
+    <% } %>
+  </div>
+
+  <% if (it.kycNotice) { %><%~ it.kycNotice %><% } %>
+</div>

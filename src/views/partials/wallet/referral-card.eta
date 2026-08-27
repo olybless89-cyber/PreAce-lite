@@ -1,0 +1,17 @@
+<%/* ReferralCard — promotional referral card.
+      The referral system in this app is referral-code based (register with a
+      code); no automated bonus payout exists yet. Only the UI is rendered and
+      it explicitly labels the reward as pending. */%>
+<div class="w-referral" data-referral>
+  <div class="w-referral__art">
+    <%~ it.icon('gift', 26) %>
+  </div>
+  <div class="w-referral__body">
+    <h3>Invite a friend</h3>
+    <p>You both get <b>$10 in Bitcoin</b> when they buy or sell $100.</p>
+    <span class="w-referral__pending">Referral rewards pending — coming soon</span>
+  </div>
+  <button type="button" class="w-referral__close" data-referral-close aria-label="Dismiss referral card">
+    <%~ it.icon('x', 14) %>
+  </button>
+</div>

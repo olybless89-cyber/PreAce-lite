@@ -9,19 +9,100 @@ import {
 import { requireUser, hash, verify } from '../lib/auth.js';
 import { render, eta } from '../lib/view.js';
 import { portfolio, balance, traderStats, myCopyPositions, unreadCount, livePrices } from '../lib/stats.js';
+import { getBalanceOverview } from '../lib/balance.js';
 import { mailPlanActivated, mailDepositReceived, mailWithdrawalRequested } from '../lib/mail.js';
 import { getWallets, listPaymentMethods, getPaymentMethod, getSiteConfig } from '../lib/settings.js';
 import { saveReceipt } from '../lib/uploads.js';
+import { icon } from '../lib/icons.js';
 import * as fmt from '../lib/money.js';
+
+/* Asset info used across the wallet dashboard (colors etc.). */
+const COIN_COLORS = {
+  BTC: '#F7931A', ETH: '#627EEA', USDT: '#26A17B', SOL: '#14F195',
+  XRP: '#2F6BFF', ADA: '#5A6BF0', DOGE: '#F2A900', LTC: '#94B2FF', TRX: '#FF060A',
+  USD: '#2563EB',
+};
+const COIN_NAMES = {
+  BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', XRP: 'Ripple', ADA: 'Cardano',
+  DOGE: 'Dogecoin', LTC: 'Litecoin', TRX: 'TRON', USDT: 'Tether', USD: 'US Dollar',
+};
 
 export const dash = new Hono();
 dash.use('*', requireUser);
 
 const svg = (d) => `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">${d}</svg>`;
+
+/* ---- wallet dashboard shared helpers ---- */
+
+const assetColor = (ticker) => COIN_COLORS[ticker] || '#7E8FBF';
+const assetName = (ticker) => COIN_NAMES[ticker] || String(ticker || '').toUpperCase();
+
+/* Quick actions route to existing, working functionality. */
+const quickActions = (icon_) => [
+  { label: 'Buy',   href: '/dashboard/trade?action=buy',  aria: 'Buy assets',     icon: icon_('plus', 22) },
+  { label: 'Sell',  href: '/dashboard/trade?action=sell', aria: 'Sell assets',    icon: icon_('minus', 22) },
+  { label: 'Send',  href: '/dashboard/withdraw',          aria: 'Send funds',     icon: icon_('send', 20) },
+  { label: 'Receive', href: '/dashboard/deposit',         aria: 'Receive funds',  icon: icon_('qr', 22) },
+];
+
+/* Deterministic sparkline derived from the 24h change so a row always has a
+   small, honest visual. Real intraday series would come from the prices feed. */
+function sparkSvg(changePct, w = 76, h = 28) {
+  const up = Number(changePct) >= 0;
+  const color = up ? '#16C784' : '#F0495C';
+  const base = h * 0.62;
+  const amp = h * 0.30;
+  const mag = Math.min(1, Math.abs(Number(changePct)) / 6);
+  const pts = [];
+  for (let i = 0; i <= 4; i++) {
+    const x = (i / 4) * (w - 4) + 2;
+    const drift = (i / 4) * mag * (up ? 1 : -1);
+    const y = base - drift * amp + (i % 2 === 0 ? -2 : 2) * mag;
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  }
+  const area = `M2,${h - 2} ` + pts.map((p, i) => `${i === 0 ? 'L' : 'L'}${p}`).join(' ') + ` L${w - 2},${h - 2} Z`;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <path d="${area}" fill="${color}22"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+/* Market rows for the Market overview card (from the prices table). */
+async function marketRows(limit = 5) {
+  const rows = await sql`
+    select symbol, price::text price, change_24h::text change_24h, updated_at
+    from prices order by symbol limit ${limit}`;
+  return rows.map((r) => {
+    const ticker = String(r.symbol).replace(/USDT$/, '');
+    return {
+      pair: r.symbol, ticker, name: assetName(ticker), color: assetColor(ticker),
+      price: Number(r.price), change: Number(r.change_24h || 0),
+      spark: sparkSvg(Number(r.change_24h || 0)),
+    };
+  });
+}
+
+/* KYC / notice widgets used on home.eta. */
+const kycCta = (u) => u.kycStatus === 'verified' ? ''
+  : `<div class="notice notice-warn" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:22px">
+      <div><b>Verify your identity.</b> <span class="small">KYC verification is required to withdraw funds.</span></div>
+      <a class="btn btn-primary btn-sm" href="/dashboard/kyc">Verify now</a>
+    </div>`;
+
+/* The recovery/test banner (internal-only on recovery accounts). */
+const recoveryBanner = (isRecovery) => isRecovery
+  ? `<div class="w-banner w-banner--recovery" role="status">
+      <span class="w-banner__dot"></span>
+      <div><b>Recovery / test account</b>
+        <span class="small">Balance shown is recovery snapshot data, not verified financial history.</span></div>
+    </div>`
+  : '';
+
 const NAV = [
   { label: 'Overview', items: [
     { href: '/dashboard',            label: 'Dashboard',        icon: svg('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>') },
     { href: '/dashboard/portfolio',  label: 'Portfolio',         icon: svg('<path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/>'), tag: 'New' },
+    { href: '/dashboard/activity',   label: 'Activity',          icon: svg('<path d="M22 12h-4l-3 8-6-16-3 8H2"/>') },
     { href: '/dashboard/statement',  label: 'Account statement', icon: svg('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>') },
   ]},
   { label: 'Trading', items: [
@@ -41,24 +122,47 @@ const NAV = [
 const shell = async (c, view, data, title) => {
   const u = c.get('user');
   const [bal, unread] = await Promise.all([balance(u.id), unreadCount(u.id)]);
-  const body = eta.render(view, { ...fmt, ...data, user: u, csrf: c.get('csrf') });
+  const body = eta.render(view, { ...fmt, fmt, icon, ...data, user: u, csrf: c.get('csrf') });
   return render(c, 'layouts/app', { body, title, nav: NAV, bal, unread });
 };
 
-/* ---------------- overview ---------------- */
+/* ---------------- overview (wallet dashboard) ---------------- */
 dash.get('/dashboard', async (c) => {
   const u = c.get('user');
-  const [pf, copies, recent, invs] = await Promise.all([
+  const [bal, mkts, recent, pf] = await Promise.all([
+    getBalanceOverview(u),
+    marketRows(5),
+    db.select().from(ledger).where(eq(ledger.userId, u.id)).orderBy(desc(ledger.createdAt)).limit(6),
     portfolio(u.id),
-    myCopyPositions(u.id),
-    db.select().from(ledger).where(eq(ledger.userId, u.id)).orderBy(desc(ledger.createdAt)).limit(8),
-    sql`select i.*, p.name plan_name, p.roi_percent::text roi
-        from investments i join plans p on p.id = i.plan_id
-        where i.user_id = ${u.id} and i.status = 'active'
-        order by i.started_at desc limit 5`,
   ]);
-  return shell(c, 'dashboard/overview', { pf, copies, recent, invs }, 'Dashboard');
+  const btcHolding = bal.assets.find((a) => a.asset === 'BTC');
+  const btcPct = bal.displayTotal > 0 && btcHolding ? Math.round((btcHolding.valueUsd / bal.displayTotal) * 100) : 100;
+  const recentRows = recent.map((r) => ({
+    title: (r.kind || '').replace(/_/g, ' ').replace(/^./, (s) => s.toUpperCase()),
+    amount: String(r.amount), createdAt: r.createdAt,
+  }));
+  return shell(c, 'dashboard/home', {
+    bal, marketRows: mkts, recent: recentRows, btcPct, pf,
+    quickActions: quickActions(icon),
+    kycNotice: kycCta(u),
+    notice: bal.isRecovery ? '' : (pf.pending > 0
+      ? `<div class="notice notice-warn" style="margin-top:14px">${fmt.usd(pf.pending)} is awaiting review. It posts to your balance once confirmed.</div>` : ''),
+  }, 'Dashboard');
 });
+
+/* ---------------- activity ---------------- */
+dash.get('/dashboard/activity', async (c) => {
+  const u = c.get('user');
+  const [rows, pf, bal] = await Promise.all([
+    db.select().from(ledger).where(eq(ledger.userId, u.id)).orderBy(desc(ledger.createdAt)).limit(200),
+    portfolio(u.id),
+    getBalanceOverview(u),
+  ]);
+  return shell(c, 'dashboard/activity', { rows, pf, bal }, 'Activity');
+});
+
+/* ---------------- learn (in-app hub) ---------------- */
+dash.get('/dashboard/learn', async (c) => shell(c, 'dashboard/learn', {}, 'Learn'));
 
 dash.get('/dashboard/partials/balance', async (c) => {
   const bal = await balance(c.get('user').id);
@@ -424,8 +528,16 @@ dash.get('/dashboard/trade', async (c) => {
   const [prices, positions, bal] = await Promise.all([
     livePrices(24), mySpotPositions(u.id), balance(u.id),
   ]);
+  let action = String(c.req.query('action') || 'buy');
+  if (!['buy', 'sell'].includes(action)) action = 'buy';
+  let sym = String(c.req.query('sym') || '').toUpperCase();
+  if (sym) { // accept `BTC` or `BTCUSDT`, defaulting to the first live pair
+    const pairs = prices.map((p) => p.pair);
+    sym = (pairs.includes(sym) || pairs.includes(sym + 'USDT')) ? sym : pairs[0] || '';
+    if (sym && !pairs.includes(sym)) sym += 'USDT';
+  }
   return shell(c, 'dashboard/trade', {
-    prices, positions, bal,
+    prices, positions, bal, action, sym,
     ok: c.req.query('ok'), error: c.req.query('e'),
   }, 'Trade');
 });
@@ -497,11 +609,12 @@ async function sellSpot(c, u, b, back) {
 /* ---------------- portfolio ---------------- */
 dash.get('/dashboard/portfolio', async (c) => {
   const u = c.get('user');
-  const [pf, copies, spots, invs] = await Promise.all([
+  const [pf, copies, spots, invs, balov] = await Promise.all([
     portfolio(u.id), myCopyPositions(u.id), mySpotPositions(u.id),
     sql`select i.*, p.name plan_name, p.roi_percent::text roi, p.period_hours, p.duration_periods
         from investments i join plans p on p.id = i.plan_id
         where i.user_id = ${u.id} order by i.started_at desc limit 20`,
+    getBalanceOverview(u),
   ]);
   const spotRows = spots.map((s) => {
     const mark = Number(s.mark), entry = Number(s.entry_price), qty = Number(s.qty);
@@ -509,7 +622,7 @@ dash.get('/dashboard/portfolio', async (c) => {
   });
   const spotValue = spotRows.reduce((a, s) => a + (s.status === 'open' ? s.value : 0), 0);
   return shell(c, 'dashboard/portfolio', {
-    pf, copies, spots: spotRows, invs, spotValue,
+    pf, copies, spots: spotRows, invs, spotValue, bal: balov,
     ok: c.req.query('ok'), error: c.req.query('e'),
   }, 'Portfolio');
 });

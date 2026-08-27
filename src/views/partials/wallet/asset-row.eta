@@ -1,0 +1,20 @@
+<%/* AssetRow — one row in the My Assets card.
+      Pass: asset { ticker, name, color, valueUsd, qty|null, kind } */%>
+<a class="w-asset" href="<%= it.href || '/dashboard/portfolio' %>">
+  <span class="w-asset__icon" style="--acc:<%= it.asset.color %>">
+    <span class="w-asset__letter"><%= it.asset.ticker.slice(0,1) %></span>
+  </span>
+  <span class="w-asset__names">
+    <b class="w-asset__name"><%= it.asset.name %></b>
+    <span class="w-asset__ticker"><%= it.asset.ticker %></span>
+  </span>
+  <span class="w-asset__vals">
+    <b class="w-asset__usd"><%= it.fmt.usd(it.asset.valueUsd) %></b>
+    <% if (it.asset.qty !== null && it.asset.qty !== undefined) { %>
+      <span class="w-asset__qty"><%= it.fmt.num(it.asset.qty, 6) %> <%= it.asset.ticker %></span>
+    <% } else { %>
+      <span class="w-asset__qty">&nbsp;</span>
+    <% } %>
+  </span>
+  <%~ it.icon('chevronR', 16) %>
+</a>

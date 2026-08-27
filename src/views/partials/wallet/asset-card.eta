@@ -1,0 +1,18 @@
+<%/* AssetCard — the "My Assets" list. Rows are data-driven. */%>
+<div class="w-card">
+  <div class="w-card__head">
+    <h2 class="w-card__title">My Assets</h2>
+  </div>
+  <div class="w-assets">
+    <% if (!it.rows.length) { %>
+      <div class="w-assets__empty">Your holdings appear here once you buy or receive assets.</div>
+    <% } %>
+    <% it.rows.forEach(function(a){ %>
+      <%~ include('asset-row', { asset: a, fmt: it.fmt }) %>
+    <% }) %>
+  </div>
+  <a class="w-card__foot" href="<%= it.footHref %>">
+    <span><%= it.footLabel %></span>
+    <%~ it.icon('arrowR', 15) %>
+  </a>
+</div>

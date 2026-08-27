@@ -7,9 +7,8 @@
   <% if (it.error) { %><div class="notice notice-err"><%= it.error %></div><% } %>
   <% const f = it.f || {} %>
 
-  <form method="post" action="/register" class="recaptcha-form" data-action="register">
+  <form method="post" action="/register">
     <input type="hidden" name="_csrf" value="<%= it.csrf %>">
-    <input type="hidden" name="g-recaptcha-response" class="recaptcha-token">
 
     <div class="row2">
       <div class="field">

@@ -1,0 +1,17 @@
+<%/* MarketOverview — live market rows with sparklines.
+      Rows come from the prices table (engine-filled); a clean deterministic
+      sparkline is derived from the 24h change so nothing is fabricated. */%>
+<div class="w-card">
+  <div class="w-card__head">
+    <h2 class="w-card__title">Market overview</h2>
+    <a class="w-card__link" href="/dashboard/markets">See all <%~ it.icon('arrowR', 13) %></a>
+  </div>
+  <div class="w-markets">
+    <% if (!it.rows.length) { %>
+      <div class="w-assets__empty">No market data yet — prices appear once the feed is live.</div>
+    <% } %>
+    <% it.rows.forEach(function(m){ %>
+      <%~ include('market-asset-row', { market: m, fmt: it.fmt }) %>
+    <% }) %>
+  </div>
+</div>

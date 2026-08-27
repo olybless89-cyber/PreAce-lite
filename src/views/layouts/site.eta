@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-recaptcha-site-key="<%= it.recaptchaSiteKey %>">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,9 +13,6 @@
 <meta property="og:title" content="<%= it.brand.name %> — Trade global markets with confidence">
 <meta property="og:type" content="website">
 <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
-<% if (it.recaptchaSiteKey) { %>
-<script src="https://www.google.com/recaptcha/api.js?render=<%= it.recaptchaSiteKey %>"></script>
-<% } %>
 </head>
 <body>
 

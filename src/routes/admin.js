@@ -13,6 +13,10 @@ import {
   listPaymentMethods, addPaymentMethod, updatePaymentMethod, deletePaymentMethod, methodValues,
 } from '../lib/settings.js';
 import { BUCKETS, creditDebit, clearAccount, setWithdrawalCode, clearWithdrawalCode } from '../lib/finance.js';
+import { activeRecoverySnapshot } from '../lib/balance.js';
+import {
+  classifyAccount, createSnapshot, verifySnapshot, addRecoveryNote, upsertInvestmentPlanConfig,
+} from '../lib/recovery.js';
 import {
   mailDepositConfirmed, mailDepositDeclined, mailWithdrawalSent, mailWithdrawalDeclined,
   mailKycApproved, mailKycRejected, mailAdminMessage,
@@ -36,6 +40,7 @@ const NAV = [
   ]},
   { label: 'People', items: [
     { href: '/admin/users',   label: 'Users',   icon: svg('<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.9"/>') },
+    { href: '/admin/recovery', label: 'Recovery', icon: svg('<path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 3L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/>') },
     { href: '/admin/kyc',     label: 'KYC review', icon: svg('<path d="M12 3l8 3v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>') },
     { href: '/admin/traders', label: 'Traders', icon: svg('<path d="M3 17l5-6 4 4 6-8"/><path d="M3 21h18"/>') },
   ]},
@@ -526,6 +531,143 @@ admin.post('/admin/users/:id/delete', async (c) => {
     values (${me.id}, ${id}, 'delete_user', ${`Deleted ${u.email}`},
             ${c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || null})`;
   return c.redirect('/admin/users');
+});
+
+/* ---------------- recovery console ---------------- */
+admin.get('/admin/recovery', async (c) => {
+  const q = (c.req.query('q') || '').trim();
+  let user = null, records = null, notes = [], active = null, plan = null;
+
+  if (q) {
+    const [u] = await sql`
+      select u.id, u.first_name, u.last_name, u.email, u.country, u.role, u.status,
+             u.kyc_status, u.account_class, u.recovery_status, u.created_at,
+             coalesce(u.email, '') as username
+      from users u
+      where u.email ilike ${'%' + q + '%'}
+         or lower(coalesce(u.email, '')) = lower(${q})
+         or lower(u.first_name) ilike ${'%' + q + '%'}
+         or lower(u.last_name) ilike ${'%' + q + '%'}
+      order by u.created_at desc limit 1`;
+    if (u) {
+      user = u;
+      records = await sql`
+        select
+          (select count(*)::int from ledger where user_id = ${u.id}) ledger_rows,
+          (select coalesce(sum(amount),0)::text from ledger where user_id = ${u.id}) balance,
+          (select count(*)::int from transactions where user_id = ${u.id}) tx_rows,
+          (select count(*)::int from transactions where user_id = ${u.id} and type='deposit' and status='approved') approved_deposits,
+          (select count(*)::int from investments where user_id = ${u.id} and status='active') inv_rows,
+          (select count(*)::int from investments where user_id = ${u.id} and status='matured') matured,
+          (select count(*)::int from spot_positions where user_id = ${u.id} and status='open') spot_rows,
+          (select count(*)::int from sessions where user_id = ${u.id}) session_rows`;
+      records = records[0];
+      notes = await sql`
+        select n.*, a.email admin_email from recovery_notes n
+        left join users a on a.id = n.created_by
+        where n.user_id = ${u.id} order by n.created_at desc limit 60`;
+      active = await activeRecoverySnapshot(u.id);
+      const [p] = await sql`
+        select * from recovery_investment_plan where user_id = ${u.id} order by id desc limit 1`;
+      plan = p ? {
+        contribution_amount: Number(p.contribution_amount),
+        frequency: p.frequency, duration_months: p.duration_months,
+        status: p.status, notes: p.notes,
+      } : null;
+    }
+  }
+  return shell(c, 'admin/recovery', {
+    q, target: user, records, notes, active, plan,
+    ok: c.req.query('ok') ? decodeURIComponent(c.req.query('ok')) : '',
+    error: c.req.query('e') ? decodeURIComponent(c.req.query('e')) : '',
+  }, 'Recovery console');
+});
+
+admin.post('/admin/recovery/:id/classify', async (c) => {
+  const id = Number(c.req.param('id'));
+  const kind = String(c.get('body').kind || '');
+  if (!['recovery_test', 'production'].includes(kind))
+    return c.redirect('/admin/recovery?e=' + encodeURIComponent('Invalid classification.'));
+  try {
+    const r = await classifyAccount(c, c.get('user'), id, kind, 'Set from the recovery console');
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&ok=' + encodeURIComponent(`Account class → ${r.to}.`));
+  } catch (e) {
+    return c.redirect('/admin/recovery?e=' + encodeURIComponent(e.message));
+  }
+});
+
+admin.post('/admin/recovery/:id/snapshot', async (c) => {
+  const id = Number(c.req.param('id'));
+  const b = c.get('body');
+  const assets = [];
+  const push = (asset, name, bal, qty) => {
+    const v = Number(b[bal]);
+    if (v > 0) assets.push({ asset, name, value: v, qty: b[qty] && Number(b[qty]) > 0 ? Number(b[qty]) : null });
+  };
+  push('BTC', 'Bitcoin', 'a_btc_balance', 'a_btc_qty');
+  push('ETH', 'Ethereum', 'a_eth_balance', 'a_eth_qty');
+  push('USD', 'US Dollar', 'a_usd_balance', 'a_usd_qty');
+  try {
+    const r = await createSnapshot(c, c.get('user'), id, {
+      total: Number(b.total) || 0,
+      btcPrice: Number(b.btcPrice) || 0,
+      source: 'admin_recovery',
+      notes: String(b.notes || '').trim() || null,
+      assets,
+    });
+    // Snapshots start unverified on this account.
+    await sql`update users set recovery_status = 'pending' where id = ${id}`;
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&ok=' + encodeURIComponent(`Snapshot #${r.id} created — display total ${fmt.usd(r.total)}.`));
+  } catch (e) {
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&e=' + encodeURIComponent(e.message));
+  }
+});
+
+admin.post('/admin/recovery/:id/snapshot/:sid/verify', async (c) => {
+  const id = Number(c.req.param('id'));
+  const sid = Number(c.req.param('sid'));
+  try {
+    await verifySnapshot(c, c.get('user'), id, sid, String(c.get('body').reason || '').trim() || 'Verified from the recovery console');
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&ok=' + encodeURIComponent(`Snapshot #${sid} marked verified.`));
+  } catch (e) {
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&e=' + encodeURIComponent(e.message));
+  }
+});
+
+admin.post('/admin/recovery/:id/note', async (c) => {
+  const id = Number(c.req.param('id'));
+  try {
+    await addRecoveryNote(c, c.get('user'), id, String(c.get('body').body || ''));
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&ok=' + encodeURIComponent('Note added and audit-logged.'));
+  } catch (e) {
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&e=' + encodeURIComponent(e.message));
+  }
+});
+
+admin.post('/admin/recovery/:id/reconcile', async (c) => {
+  const id = Number(c.req.param('id'));
+  try {
+    await addRecoveryNote(c, c.get('user'), id, '[reconcile] ' + String(c.get('body').body || '').trim());
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&ok=' + encodeURIComponent('Reconciliation entry recorded (note + audit).'));
+  } catch (e) {
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&e=' + encodeURIComponent(e.message));
+  }
+});
+
+admin.post('/admin/recovery/:id/plan', async (c) => {
+  const id = Number(c.req.param('id'));
+  const b = c.get('body');
+  try {
+    await upsertInvestmentPlanConfig(c, c.get('user'), id, {
+      amount: Number(b.amount) || 0,
+      frequency: String(b.frequency || 'biweekly'),
+      months: Number(b.months) || 6,
+      notes: String(b.notes || '').trim() || null,
+    });
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&ok=' + encodeURIComponent('Plan configuration saved (recovery reference).'));
+  } catch (e) {
+    return c.redirect('/admin/recovery?q=' + encodeURIComponent(id) + '&e=' + encodeURIComponent(e.message));
+  }
 });
 
 /* ---------------- audit log ---------------- */

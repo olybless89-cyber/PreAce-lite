@@ -6,10 +6,9 @@
 
   <% if (it.error) { %><div class="notice notice-err"><%= it.error %></div><% } %>
 
-  <form method="post" action="/login" class="recaptcha-form" data-action="login">
+  <form method="post" action="/login">
     <input type="hidden" name="_csrf" value="<%= it.csrf %>">
     <input type="hidden" name="next" value="<%= it.next || '' %>">
-    <input type="hidden" name="g-recaptcha-response" class="recaptcha-token">
 
     <div class="field">
       <label for="email">Email</label>

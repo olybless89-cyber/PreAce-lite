@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-recaptcha-site-key="<%= it.recaptchaSiteKey %>">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,9 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
 <link rel="icon" href="/img/mark.svg" type="image/svg+xml">
-<% if (it.recaptchaSiteKey) { %>
-<script src="https://www.google.com/recaptcha/api.js?render=<%= it.recaptchaSiteKey %>"></script>
-<% } %>
 </head>
 <body class="auth-page">
 <div class="auth-shell">

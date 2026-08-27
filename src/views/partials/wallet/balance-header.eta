@@ -1,0 +1,31 @@
+<%/* BalanceHeader — total balance with visibility toggle,
+      approx crypto equivalent, and a link to the statement. */%>
+<div class="w-balance card--dark" data-balance-view>
+  <div class="w-balance__top">
+    <div class="w-balance__label">
+      <span>Total balance</span>
+      <button type="button" class="w-ico-btn" data-balance-toggle aria-label="Hide or show balance" aria-pressed="true">
+        <%~ it.icon('eye', 17) %>
+      </button>
+    </div>
+    <a class="w-ico-btn w-ico-btn--ghost" href="/dashboard/statement" aria-label="Open account statement">
+      <%~ it.icon('chevronR', 19) %>
+    </a>
+  </div>
+
+  <div class="w-balance__amt" data-balance-amount><%= it.amount %></div>
+
+  <div class="w-balance__equiv">
+    <span data-balance-equiv><%= it.equivText %></span>
+    <button type="button" class="w-ico-btn w-ico-btn--xs" data-tip="Approximate value in Bitcoin at the snapshot price." aria-label="About the Bitcoin equivalent">
+      <%~ it.icon('info', 13) %>
+    </button>
+  </div>
+
+  <div class="w-balance__btcbar" data-balance-btcbar>
+    <div class="w-btcbar-track"><i class="w-btcbar-fill" style="width:<%= it.btcPct %>%"></i></div>
+    <span class="w-btcbar-cap">BTC</span>
+  </div>
+</div>
+
+<% if (it.badge) { %><%~ it.badge %><% } %>

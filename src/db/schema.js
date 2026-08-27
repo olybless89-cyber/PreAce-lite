@@ -23,10 +23,85 @@ export const users = pgTable('users', {
   referralCode: varchar('referral_code', { length: 20 }),
   referredBy: integer('referred_by'),
   withdrawalCodeHash: text('withdrawal_code_hash'), // hashed; admin sets, user enters on withdraw
+  // Balance provenance. 'production' = balances come from the ledger.
+  // 'recovery_test' = a recovery snapshot supplies DISPLAY balances (they are
+  // recovery/test data, never genuine financial history).
+  accountClass: varchar('account_class', { length: 24 }).notNull().default('production'),
+  recoveryStatus: varchar('recovery_status', { length: 24 }).notNull().default('none'), // none | pending | verified
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   emailIdx: uniqueIndex('users_email_idx').on(t.email),
   refIdx: uniqueIndex('users_ref_idx').on(t.referralCode),
+}));
+
+/* Recovery snapshots. One header row per snapshot, one child row per asset.
+   Snapshot rows are DISPLAY/RECOVERY DATA ONLY — they never touch the ledger,
+   so they can never be mistaken for genuine transactions. The BalanceService
+   is the only reader; it distinguishes:
+     real_balance               (sum of the ledger)
+     recovery_display_balance   (snapshot on a RECOVERY_TEST account)
+     test_balance               (snapshot present but account not classified)
+   Multiple snapshots are allowed; the newest is the active display source. */
+export const userBalanceSnapshots = pgTable('user_balance_snapshots', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull(),
+  snapshotType: varchar('snapshot_type', { length: 24 }).notNull().default('recovery'), // recovery | verified
+  status: varchar('status', { length: 24 }).notNull().default('draft'), // draft | verified
+  displayTotal: numeric('display_total', { precision: 20, scale: 8 }).notNull().default('0'),
+  btcPrice: numeric('btc_price', { precision: 20, scale: 8 }),
+  source: varchar('source', { length: 60 }).notNull().default('admin_recovery'),
+  notes: text('notes'),
+  createdBy: integer('created_by').notNull(),
+  verifiedBy: integer('verified_by'),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('ubs_user_idx').on(t.userId, t.createdAt),
+}));
+
+export const userBalanceSnapshotAssets = pgTable('user_balance_snapshot_assets', {
+  id: serial('id').primaryKey(),
+  snapshotId: integer('snapshot_id').notNull(),
+  asset: varchar('asset', { length: 12 }).notNull(),        // BTC | ETH | USD
+  assetName: varchar('asset_name', { length: 60 }).notNull(),
+  displayBalance: numeric('display_balance', { precision: 20, scale: 8 }).notNull(), // USD value
+  displayQuantity: numeric('display_quantity', { precision: 20, scale: 8 }),          // units when crypto
+  sortOrder: integer('sort_order').notNull().default(0),
+}, (t) => ({
+  snapIdx: index('ubsa_snap_idx').on(t.snapshotId),
+}));
+
+/* Internal recovery working notes + reconciliation trail. Readable only in
+   the admin recovery console. Every mutation is mirrored to audit_log. */
+export const recoveryNotes = pgTable('recovery_notes', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull(),
+  kind: varchar('kind', { length: 24 }).notNull().default('note'), // note | reconcile | plan_config | classify
+  body: text('body').notNull(),
+  createdBy: integer('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('rn_user_idx').on(t.userId, t.createdAt),
+}));
+
+/* A user's intended investment-plan configuration (recovery reference).
+   Purposely separate from the `investments`/`plans` tables: this records an
+   ADMIN-AUTHORED RECOVERY NOTE about the client's intended plan, it is never
+   treated as a historical contribution (no ledger rows are created). */
+export const recoveryInvestmentPlan = pgTable('recovery_investment_plan', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull(),
+  contributionAmount: numeric('contribution_amount', { precision: 20, scale: 2 }).notNull(),
+  frequency: varchar('frequency', { length: 24 }).notNull().default('biweekly'),
+  durationMonths: integer('duration_months').notNull().default(6),
+  status: varchar('status', { length: 24 }).notNull().default('recovery_reference'), // recovery_reference | verified
+  source: varchar('source', { length: 24 }).notNull().default('admin_recovery'),
+  notes: text('notes'),
+  createdBy: integer('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('rip_user_idx').on(t.userId),
 }));
 
 /* Ledger. Balance is never a column — it is the sum of this table.

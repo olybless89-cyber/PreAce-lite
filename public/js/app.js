@@ -1,52 +1,85 @@
 /* Small, dependency-free. HTMX does the fetching; this handles polish. */
 
-/* ── Google reCAPTCHA v3: execute before form submission ── */
+/* ── Wallet dashboard: balance visibility toggle ──
+   Local per-device preference, never sent to the server. Server-side the
+   authoritative balance is untouched — this only masks what is rendered. */
 (function () {
-  const siteKey = document.documentElement.dataset.recaptchaSiteKey;
-  if (!siteKey || typeof grecaptcha === 'undefined') return;
+  const view = document.querySelector('[data-balance-view]');
+  if (!view) return;
+  const amountEl = view.querySelector('[data-balance-amount]');
+  const equivEl = view.querySelector('[data-balance-equiv]');
+  const btn = view.querySelector('[data-balance-toggle]');
+  if (!amountEl || !btn) return;
 
-  function execute(form) {
-    const action = form.dataset.action || 'submit';
-    return new Promise((resolve, reject) => {
-      grecaptcha.ready(() => {
-        grecaptcha.execute(siteKey, { action })
-          .then((token) => {
-            const input = form.querySelector('.recaptcha-token');
-            if (input) input.value = token;
-            resolve(token);
-          })
-          .catch(reject);
-      });
-    });
+  const KEY = 'w_hide_balance';
+  let hidden = false;
+  try { hidden = localStorage.getItem(KEY) === '1'; } catch {}
+
+  const mask = () => '••••••••';
+  const apply = () => {
+    const hide = hidden;
+    amountEl.textContent = hide ? mask() : amountEl.dataset.full;
+    if (equivEl) equivEl.textContent = hide ? '' : equivEl.dataset.full;
+    btn.setAttribute('aria-pressed', String(!hide));
+    btn.setAttribute('aria-label', hide ? 'Show balance' : 'Hide balance');
+    view.classList.toggle('is-hidden', hide);
+  };
+
+  // Store the real rendered values once, then toggle between them.
+  if (!amountEl.dataset.full) {
+    amountEl.dataset.full = amountEl.textContent.trim();
+    if (equivEl) equivEl.dataset.full = equivEl.textContent.trim();
   }
+  apply();
 
-  document.querySelectorAll('form.recaptcha-form').forEach((form) => {
-    form.addEventListener('submit', async (e) => {
-      if (form.dataset.recaptchaReady === 'true') return;
-      e.preventDefault();
-      if (form.dataset.recaptchaBusy === 'true') return; // double-click guard
-      form.dataset.recaptchaBusy = 'true';
-      try {
-        await execute(form);
-        form.dataset.recaptchaReady = 'true';
-        // requestSubmit is missing on older engines — fall back to a native
-        // submit so the click is never silently swallowed.
-        if (typeof form.requestSubmit === 'function') form.requestSubmit();
-        else form.submit();
-      } catch (err) {
-        console.error('[recaptcha]', err);
-        alert('Could not verify the security check. Please reload the page and try again.');
-      } finally {
-        delete form.dataset.recaptchaBusy;
-      }
-    });
+  btn.addEventListener('click', () => {
+    hidden = !hidden;
+    try { localStorage.setItem(KEY, hidden ? '1' : '0'); } catch {}
+    apply();
   });
+})();
 
-  // Refresh token on each page load so users can submit again without reload
-  grecaptcha?.ready?.(() => {
-    document.querySelectorAll('form.recaptcha-form').forEach((form) => {
-      execute(form).catch(() => {});
-    });
+/* ── User menu dropdown (circular profile button in the topbar) ── */
+(function () {
+  const btn = document.querySelector('[data-user-menu]');
+  if (!btn) return;
+  const panel = btn.parentElement?.querySelector('.w-usermenu__panel');
+  const root = btn.closest('.w-usermenu');
+  if (!panel) return;
+
+  const close = () => {
+    panel.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    root.classList.remove('open');
+  };
+  const open = () => {
+    panel.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    root.classList.add('open');
+  };
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    panel.hidden ? open() : close();
+  });
+  document.addEventListener('click', (e) => {
+    if (!root.contains(e.target)) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
+})();
+
+/* ── Referral card dismiss ── */
+(function () {
+  const card = document.querySelector('[data-referral]');
+  const btn = card?.querySelector('[data-referral-close]');
+  if (!card || !btn) return;
+  btn.addEventListener('click', () => {
+    card.style.transition = 'opacity .25s ease, transform .25s ease';
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(-6px)';
+    setTimeout(() => { card.hidden = true; }, 240);
   });
 })();
 

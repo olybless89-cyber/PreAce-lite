@@ -1,0 +1,9 @@
+<%/* QuickActions — four circular actions wired to existing app routes. */%>
+<div class="w-actions">
+  <% it.items.forEach(function(q){ %>
+    <a class="w-action" href="<%= q.href %>" aria-label="<%= q.aria %>">
+      <span class="w-action__btn"><%~ q.icon %></span>
+      <span class="w-action__label"><%= q.label %></span>
+    </a>
+  <% }) %>
+</div>

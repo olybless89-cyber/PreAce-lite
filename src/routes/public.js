@@ -3,7 +3,6 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { plans as plansT, traderTrades, traders as tradersT } from '../db/schema.js';
 import { render, partial, eta } from '../lib/view.js';
-import { verifyRecaptcha } from '../lib/recaptcha.js';
 import { mailContactMessage } from '../lib/mail.js';
 import { traderStats, platformStats, livePrices } from '../lib/stats.js';
 import * as fmt from '../lib/money.js';
@@ -161,9 +160,6 @@ pub.post('/contact', async (c) => {
   if (!data.name || !data.email || !data.message) {
     return back('Please complete all fields before sending.');
   }
-
-  const recaptcha = await verifyRecaptcha(data['g-recaptcha-response']);
-  if (!recaptcha.ok) return back(recaptcha.error);
 
   // Log + forward to the support inbox. Fire-and-forget — a mail hiccup
   // must not cost us the message.

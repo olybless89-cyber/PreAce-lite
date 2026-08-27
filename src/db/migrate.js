@@ -300,6 +300,57 @@ const DDL = [
     created_at timestamptz not null default now()
   )`,
   `create index if not exists audit_user_idx on audit_log(user_id, created_at)`,
+  /* ------- v3: recovery snapshots + balance provenance (non-destructive) ------- */
+  `alter table users add column if not exists account_class varchar(24) not null default 'production'`,
+  `alter table users add column if not exists recovery_status varchar(24) not null default 'none'`,
+  `create table if not exists user_balance_snapshots (
+    id serial primary key,
+    user_id integer not null,
+    snapshot_type varchar(24) not null default 'recovery',
+    status varchar(24) not null default 'draft',
+    display_total numeric(20,8) not null default 0,
+    btc_price numeric(20,8),
+    source varchar(60) not null default 'admin_recovery',
+    notes text,
+    created_by integer not null,
+    verified_by integer,
+    verified_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  )`,
+  `create index if not exists ubs_user_idx on user_balance_snapshots(user_id, created_at)`,
+  `create table if not exists user_balance_snapshot_assets (
+    id serial primary key,
+    snapshot_id integer not null,
+    asset varchar(12) not null,
+    asset_name varchar(60) not null,
+    display_balance numeric(20,8) not null,
+    display_quantity numeric(20,8),
+    sort_order integer not null default 0
+  )`,
+  `create index if not exists ubsa_snap_idx on user_balance_snapshot_assets(snapshot_id)`,
+  `create table if not exists recovery_notes (
+    id serial primary key,
+    user_id integer not null,
+    kind varchar(24) not null default 'note',
+    body text not null,
+    created_by integer not null,
+    created_at timestamptz not null default now()
+  )`,
+  `create index if not exists rn_user_idx on recovery_notes(user_id, created_at)`,
+  `create table if not exists recovery_investment_plan (
+    id serial primary key,
+    user_id integer not null,
+    contribution_amount numeric(20,2) not null,
+    frequency varchar(24) not null default 'biweekly',
+    duration_months integer not null default 6,
+    status varchar(24) not null default 'recovery_reference',
+    source varchar(24) not null default 'admin_recovery',
+    notes text,
+    created_by integer not null,
+    created_at timestamptz not null default now()
+  )`,
+  `create index if not exists rip_user_idx on recovery_investment_plan(user_id)`,
 ];
 
 export async function migrate() {

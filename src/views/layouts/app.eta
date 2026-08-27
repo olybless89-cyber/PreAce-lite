@@ -78,40 +78,72 @@
         <% } %>
       </a>
 
-      <a href="/dashboard/account" class="topbar__user" aria-label="Your account">
-        <div class="avatar"><%= it.initials(it.user.firstName, it.user.lastName) %></div>
-        <div class="user-name">
-          <b><%= it.user.firstName %> <%= it.user.lastName %></b>
-          <span><%= it.user.role === 'admin' ? 'Administrator' : 'Trading account' %></span>
+      <!-- Circular profile button with a dropdown user menu -->
+      <div class="w-usermenu">
+        <button type="button" class="w-usermenu__btn" data-user-menu aria-label="Open user menu" aria-expanded="false">
+          <span class="avatar"><%= it.initials(it.user.firstName, it.user.lastName) %></span>
+          <span class="w-usermenu__chev"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        </button>
+        <div class="w-usermenu__panel" hidden>
+          <div class="w-usermenu__me">
+            <span class="avatar"><%= it.initials(it.user.firstName, it.user.lastName) %></span>
+            <div class="w-usermenu__name">
+              <b><%= it.user.firstName %> <%= it.user.lastName %></b>
+              <span><%= it.user.role === 'admin' ? 'Administrator' : 'Trading account' %></span>
+            </div>
+          </div>
+          <a href="/dashboard/account" class="w-usermenu__item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>
+            Profile
+          </a>
+          <a href="/dashboard/account/profile" class="w-usermenu__item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3l8 3v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+            Account settings
+          </a>
+          <a href="/dashboard/account/password" class="w-usermenu__item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+            Security
+          </a>
+          <a href="/dashboard/notifications" class="w-usermenu__item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+            Notifications
+          </a>
+          <form method="post" action="/logout" class="w-usermenu__logout">
+            <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+            <button type="submit" class="w-usermenu__item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+              Log out
+            </button>
+          </form>
         </div>
-      </a>
+      </div>
     </div>
 
     <main class="content"><%~ it.body %></main>
   </div>
 </div>
 
-<!-- Mobile bottom navigation bar -->
+<!-- Mobile bottom navigation bar (Home / Explore / Portfolio / Activity / Learn) -->
 <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
-  <a href="/dashboard" class="<%= it.path === '/dashboard' ? 'on' : '' %>" aria-label="Dashboard">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+  <a href="/dashboard" class="<%= it.path === '/dashboard' ? 'on' : '' %>" aria-label="Home">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg>
     <span>Home</span>
   </a>
-  <a href="/dashboard/trade" class="<%= it.path === '/dashboard/trade' ? 'on' : '' %>" aria-label="Trade">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>
-    <span>Trade</span>
-  </a>
-  <a href="/dashboard/deposit" class="<%= it.path === '/dashboard/deposit' ? 'on' : '' %>" aria-label="Deposit">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12l4 4 4-4"/></svg>
-    <span>Deposit</span>
+  <a href="/dashboard/markets" class="<%= it.path === '/dashboard/markets' ? 'on' : '' %>" aria-label="Explore">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>
+    <span>Explore</span>
   </a>
   <a href="/dashboard/portfolio" class="<%= it.path === '/dashboard/portfolio' ? 'on' : '' %>" aria-label="Portfolio">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21.2 14A9 9 0 1110 2.8V12z"/><path d="M14 3a9 9 0 017 7h-7z"/></svg>
     <span>Portfolio</span>
   </a>
-  <a href="/dashboard/account" class="<%= (it.path === '/dashboard/account' || it.path.startsWith('/dashboard/account/')) ? 'on' : '' %>" aria-label="Account">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>
-    <span>Account</span>
+  <a href="/dashboard/activity" class="<%= it.path === '/dashboard/activity' ? 'on' : '' %>" aria-label="Activity">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M22 12h-4l-3 8-6-16-3 8H2"/></svg>
+    <span>Activity</span>
+  </a>
+  <a href="/dashboard/learn" class="<%= it.path === '/dashboard/learn' ? 'on' : '' %>" aria-label="Learn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M22 9L12 5 2 9l10 4 10-4z"/><path d="M6 11.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-5.5"/><path d="M22 9v5"/></svg>
+    <span>Learn</span>
   </a>
 </nav>
 <script src="/js/app.js" defer></script>

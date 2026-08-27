@@ -1,0 +1,67 @@
+<%/* Activity — a grouped view of REAL ledger/transaction history.
+      Recovery/test accounts additionally show the snapshot banner and the
+      recovery snapshot as a clearly labelled entry. No fake history. */%>
+<div class="page-head">
+  <div><h1>Activity</h1>
+    <p class="small" style="margin:4px 0 0">Deposits, withdrawals, investments, returns and transfers from your account ledger.</p></div>
+</div>
+
+<% if (it.bal.isRecovery) { %>
+  <div class="w-banner w-banner--recovery" role="status">
+    <span class="w-banner__dot"></span>
+    <div>
+      <b>Recovery / test account</b>
+      <span class="small">The balance shown on this account is a recovery snapshot. Only genuine ledger activity is listed below — no fabricated history.</span>
+    </div>
+  </div>
+<% } %>
+
+<% if (it.bal.snapshot && !it.rows.length) { %>
+  <div class="notice notice-info">
+    No ledger activity on record for this recovery snapshot. The displayed balance is recovery/test data —
+    it restores the previous balance picture without inventing transactions.
+  </div>
+<% } %>
+
+<div class="grid g4" style="margin-bottom:20px">
+  <div class="stat"><div class="stat-k">Deposited</div><div class="stat-v"><%= it.usd(it.pf.deposited) %></div></div>
+  <div class="stat"><div class="stat-k">Withdrawn</div><div class="stat-v"><%= it.usd(it.pf.withdrawn) %></div></div>
+  <div class="stat"><div class="stat-k">Realised P&amp;L</div><div class="stat-v <%= it.dir(it.pf.realised) %>"><%= it.signedUsd(it.pf.realised) %></div></div>
+  <div class="stat"><div class="stat-k">In plans &amp; copy</div><div class="stat-v"><%= it.usd(it.pf.staked + it.pf.exposure) %></div></div>
+</div>
+
+<div class="card card--flush" style="overflow:hidden">
+  <div class="table-wrap" style="border:0">
+    <table>
+      <thead><tr><th>Date</th><th>Account</th><th>Activity</th><th>Reference</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <% if (!it.rows.length) { %>
+          <tr><td colspan="5"><div class="empty"><h4>Nothing to show yet</h4>
+            <p class="small">Deposits, withdrawals, investments, returns and transfers appear here as they happen.</p></div></td></tr>
+        <% } %>
+        <% it.rows.forEach(function(r){ %>
+          <tr>
+            <td class="small muted"><%= it.dt(r.createdAt) %></td>
+            <td><span class="pill"><%= r.account %></span></td>
+            <td><%= r.kind.replace(/_/g,' ').replace(/^./, s=>s.toUpperCase()) %></td>
+            <td class="small muted"><%= r.memo || '—' %></td>
+            <td class="num <%= it.dir(r.amount) %>"><%= it.signedUsd(r.amount) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<% if (it.bal.snapshot) { %>
+  <div class="card" style="margin-top:20px;border-color:var(--yellow-line)">
+    <div class="card-head"><h3>Recovery snapshot</h3>
+      <span class="badge badge-yellow"><%= it.bal.snapshot.verified ? 'Verified' : it.bal.snapshot.status %></span></div>
+    <dl class="kv">
+      <dt>Snapshot</dt><dd>#<%= it.bal.snapshot.id %> · <%= it.bal.snapshot.source %></dd>
+      <dt>Display total</dt><dd><%= it.usd(it.bal.displayTotal) %></dd>
+      <dt>Recorded</dt><dd><%= it.dt(it.bal.snapshot.createdAt) %></dd>
+      <dt>Kind</dt><dd>recovery_display_balance (not ledger)</dd>
+    </dl>
+  </div>
+<% } %>

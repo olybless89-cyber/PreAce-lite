@@ -1,0 +1,202 @@
+<%/* =================================================================
+   Admin recovery console
+   -----------------------------------------------------------------
+   Operators search a user, see their recovery status and surviving
+   records, manage the recovery snapshot, plan config, internal notes,
+   classification and verification. Every mutation is server-side and
+   audit-logged; balances are never touched from this screen.
+   ================================================================= */%>
+<div class="page-head">
+  <div><h1>Recovery console</h1>
+    <p class="small" style="margin:4px 0 0">Restore accounts after data loss. Snapshots are display data — genuine ledger fixes use the normal credit/debit flow.</p></div>
+  <a class="btn btn-ghost btn-sm" href="/admin/audit">Audit log</a>
+</div>
+
+<form method="get" action="/admin/recovery" style="margin-bottom:20px">
+  <div class="row" style="gap:10px;flex-wrap:wrap">
+    <input class="input" name="q" value="<%= it.q || '' %>" placeholder="Search by name, username or email…" style="flex:1;min-width:220px">
+    <button class="btn btn-primary btn-sm">Search</button>
+  </div>
+</form>
+
+<% if (!it.target) { %>
+  <div class="card empty"><h4><%= it.q ? 'No account matched "x"'.replace('x', it.q) : 'Search for the account to recover' %></h4>
+    <p class="small">Try "Tammy Riley", "tammy.riley" or the account email.</p></div>
+<% } else { %>
+  <% const u = it.target; %>
+
+  <% if (it.ok) { %><div class="notice notice-ok"><%= it.ok %></div><% } %>
+  <% if (it.error) { %><div class="notice notice-err"><%= it.error %></div><% } %>
+
+  <div class="grid grid-admin-split" style="margin-bottom:20px;align-items:start">
+
+    <div style="display:grid;gap:20px">
+      <div class="card">
+        <div class="card-head"><h3><%= u.first_name %> <%= u.last_name %></h3>
+          <span class="badge <%= u.account_class === 'recovery_test' ? 'badge-yellow' : 'badge-blue' %>"><%= u.account_class %></span>
+        </div>
+        <dl class="kv">
+          <dt>Username</dt><dd><%= u.username %></dd>
+          <dt>Email</dt><dd><%= u.email %> · ID <%= u.id %></dd>
+          <dt>Recovery status</dt><dd><%= u.recovery_status %></dd>
+          <dt>Class</dt><dd><%= u.account_class %></dd>
+          <dt>KYC</dt><dd><%= u.kyc_status %> · <%= u.status %></dd>
+        </dl>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:14px">
+          <form method="post" action="/admin/recovery/<%= u.id %>/classify">
+            <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+            <% if (u.account_class === 'recovery_test') { %>
+              <input type="hidden" name="kind" value="production">
+              <button class="btn btn-ghost btn-sm">Clear recovery flag</button>
+            <% } else { %>
+              <input type="hidden" name="kind" value="recovery_test">
+              <button class="btn btn-quiet btn-sm">Mark as recovery/test</button>
+            <% } %>
+          </form>
+          <a class="btn btn-ghost btn-sm" href="/admin/users/<%= u.id %>">Open user page</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Surviving records</h3>
+          <span class="badge badge-blue">read-only</span></div>
+        <dl class="kv">
+          <dt>Ledger rows</dt><dd><%= it.records.ledger_rows %></dd>
+          <dt>Balance</dt><dd><%= it.usd(it.records.balance) %></dd>
+          <dt>Transactions</dt><dd><%= it.records.tx_rows %> (<%= it.records.approved_deposits %> approved deposits)</dd>
+          <dt>Investments</dt><dd><%= it.records.inv_rows %> active · <%= it.records.matured %> matured</dd>
+          <dt>Spot positions</dt><dd><%= it.records.spot_rows %> open</dd>
+          <dt>Sessions</dt><dd><%= it.records.session_rows %></dd>
+        </dl>
+        <p class="small muted" style="margin-top:10px">Snapshots never create these rows. If genuine records exist they take precedence for verification.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Internal notes &amp; trail</h3></div>
+        <% if (it.notes.length) { %>
+          <div style="display:grid;gap:0">
+            <% it.notes.forEach(function(n){ %>
+              <div style="padding:11px 0;border-bottom:1px solid var(--line-soft)">
+                <div class="row" style="justify-content:space-between;gap:10px">
+                  <span class="badge <%= n.kind==='classify'?'badge-yellow':n.kind==='plan_config'?'badge-blue':'badge-idle' %>"><%= n.kind %></span>
+                  <span class="tiny muted"><%= it.dt(n.created_at) %> · <%= n.admin_email || 'script' %></span>
+                </div>
+                <p class="small" style="margin-top:7px;color:var(--ink-2)"><%= n.body %></p>
+              </div>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <p class="small muted">No internal notes yet.</p>
+        <% } %>
+        <form method="post" action="/admin/recovery/<%= u.id %>/note" style="margin-top:12px">
+          <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+          <div class="field"><label>Add an internal recovery note</label>
+            <textarea class="input" name="body" rows="2" required placeholder="What did you reconcile / what is still missing?"></textarea></div>
+          <button class="btn btn-quiet btn-block btn-sm">Add note</button>
+        </form>
+      </div>
+    </div>
+
+    <div style="display:grid;gap:20px">
+      <% if (it.active) { %>
+        <div class="card" style="border-color:var(--yellow-line)">
+          <div class="card-head"><h3>Balance snapshot #<%= it.active.id %></h3>
+            <span class="badge <%= it.active.status === 'verified' ? 'badge-live' : 'badge-yellow' %>"><%= it.active.status %></span>
+          </div>
+          <dl class="kv">
+            <dt>Display total</dt><dd><%= it.usd(it.active.display_total) %></dd>
+            <dt>Source</dt><dd><%= it.active.source %></dd>
+            <dt>Created</dt><dd><%= it.dt(it.active.created_at) %></dd>
+            <% if (it.active.notes) { %><dt>Notes</dt><dd class="muted"><%= it.active.notes %></dd><% } %>
+            <dt>Assets</dt><dd>
+              <% it.active.assets.forEach(function(a){ %>
+                <div><span class="pill pill--blue" style="margin:2px 4px 2px 0"><%= a.asset %> · <%= it.usd(a.display_balance) %> <%= a.display_quantity ? '· ' + it.num(a.display_quantity, 6) : '' %></span></div>
+              <% }) %>
+            </dd>
+          </dl>
+          <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
+            <% if (it.active.status !== 'verified') { %>
+              <form method="post" action="/admin/recovery/<%= u.id %>/snapshot/<%= it.active.id %>/verify">
+                <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+                <input type="hidden" name="reason" value="Admin verified surviving records match the snapshot.">
+                <button class="btn btn-primary btn-sm">Mark verified</button>
+              </form>
+            <% } %>
+            <span class="small muted" style="align-self:center">New snapshots supersede this one.</span>
+          </div>
+        </div>
+      <% } else { %>
+        <div class="notice notice-warn">No snapshot yet — create one below.</div>
+      <% } %>
+
+      <div class="card">
+        <div class="card-head"><h3>Create / update recovery snapshot</h3></div>
+        <details <% if (!it.active) { %>open<% } %>>
+          <summary class="small" style="cursor:pointer;padding:4px 0;color:var(--ink-2)">Enter display balances (recovery data only — no ledger write)</summary>
+          <form method="post" action="/admin/recovery/<%= u.id %>/snapshot" style="margin-top:12px">
+            <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+            <div class="row2">
+              <div class="field"><label>BTC value (USD)</label><input class="input num" type="number" step="0.01" name="a_btc_balance" value="<%= it.active ? it.active.display_total : '' %>"></div>
+              <div class="field"><label>BTC quantity</label><input class="input num" type="number" step="0.000001" name="a_btc_qty" value="0.021624"></div>
+            </div>
+            <div class="row2">
+              <div class="field"><label>ETH value (USD)</label><input class="input num" type="number" step="0.01" name="a_eth_balance" value="482.20"></div>
+              <div class="field"><label>ETH quantity</label><input class="input num" type="number" step="0.000001" name="a_eth_qty" value="0.190196"></div>
+            </div>
+            <div class="field"><label>USD cash</label><input class="input num" type="number" step="0.01" name="a_usd_balance" value="200.00"></div>
+            <div class="field"><label>Display total (auto-derived from assets if left blank)</label>
+              <input class="input num" type="number" step="0.01" name="total" placeholder="2048.00"></div>
+            <div class="row2">
+              <div class="field"><label>BTC price reference</label><input class="input num" type="number" step="0.01" name="btcPrice" placeholder="63140.00"></div>
+            </div>
+            <div class="field"><label>Notes</label><textarea class="input" name="notes" rows="2" placeholder="Why this snapshot, what it represents"></textarea></div>
+            <button class="btn btn-primary btn-block btn-sm">Create snapshot</button>
+          </form>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Investment plan configuration</h3>
+          <span class="badge badge-yellow"><%= it.plan ? it.plan.status : 'not set' %></span></div>
+        <p class="small muted" style="margin:4px 0 12px">Records the intended plan as a recovery reference only — no contributions or ledger rows are created or implied.</p>
+        <% if (it.plan) { %>
+          <dl class="kv">
+            <dt>Contribution</dt><dd><%= it.usd(it.plan.contribution_amount) %></dd>
+            <dt>Frequency</dt><dd><%= it.plan.frequency %></dd>
+            <dt>Duration</dt><dd><%= it.plan.duration_months %> months</dd>
+            <% if (it.plan.notes) { %><dt>Notes</dt><dd class="muted"><%= it.plan.notes %></dd><% } %>
+          </dl>
+        <% } %>
+        <form method="post" action="/admin/recovery/<%= u.id %>/plan" style="margin-top:12px">
+          <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+          <div class="row2">
+            <div class="field"><label>Contribution (USD)</label>
+              <input class="input num" name="amount" type="number" step="0.01" value="<%= it.plan ? it.plan.contribution_amount : '750' %>"></div>
+            <div class="field"><label>Frequency</label>
+              <select class="input" name="frequency">
+                <option value="weekly">Weekly</option>
+                <option value="biweekly" <%= (!it.plan || it.plan.frequency==='biweekly') ? 'selected' : '' %>>Every 2 weeks</option>
+                <option value="monthly">Monthly</option>
+              </select></div>
+          </div>
+          <div class="field"><label>Duration (months)</label>
+            <input class="input num" name="months" type="number" min="1" max="120" value="<%= it.plan ? it.plan.duration_months : '6' %>"></div>
+          <div class="field"><label>Notes</label><input class="input" name="notes" value="<%= it.plan ? (it.plan.notes || '') : '' %>" placeholder="Intended plan for recovered account"></div>
+          <button class="btn btn-quiet btn-block btn-sm">Save plan configuration</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Reconcile genuine transactions</h3></div>
+        <p class="small muted" style="margin:4px 0 12px">If surviving records contain real deposits/withdrawals that were never posted, record them so this console has the trail.</p>
+        <form method="post" action="/admin/recovery/<%= u.id %>/reconcile">
+          <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+          <div class="field"><label>What was reconciled</label>
+            <textarea class="input" name="body" rows="2" required placeholder="e.g. Verified 2 approved deposits ($500, $1,500) survived in the transactions table; they match the snapshot total."></textarea></div>
+          <button class="btn btn-primary btn-block btn-sm">Post reconciliation entry</button>
+          <p class="hint" style="margin-top:8px">Matching ledger entries (if the money is genuinely owed) go through the normal Credit/Debit flow so they audit correctly.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+<% } %>

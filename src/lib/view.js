@@ -11,7 +11,7 @@ export const eta = new Eta({
   rmWhitespace: false,
 });
 
-/* render(c, 'pages/home', {...}) — brand + user + csrf + recaptcha are always present
+/* render(c, 'pages/home', {...}) — brand + user + csrf are always present
    so no template has to remember to pass them. */
 export function render(c, template, data = {}) {
   const user = c.get('user');
@@ -21,7 +21,6 @@ export function render(c, template, data = {}) {
     user,
     csrf: c.get('csrf'),
     path: c.req.path,
-    recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || '',
     site: c.get('site') || {
       supportEmail: 'preacelitesupport@gmail.com', smartsuppKey: '',
       officeAddress: '30 South 9th Street, 7th Floor, Minneapolis, MN 55402',
@@ -42,6 +41,5 @@ export function partial(c, template, data = {}) {
     ...data,
     user: c.get('user'),
     csrf: c.get('csrf'),
-    recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || '',
   }));
 }
