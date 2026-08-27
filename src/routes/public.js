@@ -136,7 +136,7 @@ const SIMPLE = {
 for (const [route, cfg] of Object.entries(SIMPLE)) {
   pub.get(route, async (c) => {
     const tick = await tickerHtml();
-    const body = eta.render(cfg.v, { ...fmt, csrf: c.get('csrf') });
+    const body = eta.render(cfg.v, { ...fmt, csrf: c.get('csrf'), site: c.get('site') });
     return render(c, 'layouts/site', { body, tickerHtml: tick, title: cfg.t });
   });
 }
@@ -149,6 +149,7 @@ pub.post('/contact', async (c) => {
     const body = eta.render('pages/contact', {
       ...fmt,
       csrf: c.get('csrf'),
+      site: c.get('site'),
       error: err,
       name: data.name || '',
       email: data.email || '',
@@ -170,6 +171,6 @@ pub.post('/contact', async (c) => {
   mailContactMessage({ name: String(data.name).slice(0, 120), email: String(data.email).slice(0, 255), message: data.message })
     .catch((e) => console.error('[mail] contact forward failed:', e.message));
 
-  const body = eta.render('pages/contact', { ...fmt, csrf: c.get('csrf'), sent: true });
+  const body = eta.render('pages/contact', { ...fmt, csrf: c.get('csrf'), site: c.get('site'), sent: true });
   return render(c, 'layouts/site', { body, tickerHtml: tick, title: 'Contact', sent: true });
 });

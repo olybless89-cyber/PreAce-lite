@@ -739,6 +739,8 @@ admin.post('/admin/site', async (c) => {
     supportEmail: String(b.supportEmail || ''),
     smartsuppKey: String(b.smartsuppKey || ''),
     withdrawalKycRequired: b.withdrawalKycRequired === 'on',
+    officeAddress: String(b.officeAddress || ''),
+    officePhone: String(b.officePhone || ''),
   });
   return c.redirect('/admin/site?ok=1');
 });

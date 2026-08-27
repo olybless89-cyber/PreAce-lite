@@ -22,7 +22,11 @@ export function render(c, template, data = {}) {
     csrf: c.get('csrf'),
     path: c.req.path,
     recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || '',
-    site: c.get('site') || { supportEmail: 'preacelitesupport@gmail.com', smartsuppKey: '' },
+    site: c.get('site') || {
+      supportEmail: 'preacelitesupport@gmail.com', smartsuppKey: '',
+      officeAddress: '30 South 9th Street, 7th Floor, Minneapolis, MN 55402',
+      officePhone: '(936) 235-1482',
+    },
     brand: {
       name: process.env.BRAND_NAME || 'PreAce-lite',
       domain: process.env.BRAND_DOMAIN || 'preace-lite.com',

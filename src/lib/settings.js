@@ -45,11 +45,15 @@ export async function setWallets(obj) {
    supportEmail — inbox for contact-form mail; shown to users as the
      support address. Defaults to SUPPORT_EMAIL env, else the shared Gmail.
    smartsuppKey — Smartsupp live-chat widget key; blank disables the widget.
-     Defaults to SMARTSUPP_KEY env, else the legacy hardcoded key. */
+     Defaults to SMARTSUPP_KEY env, else the legacy hardcoded key.
+   officeAddress / officePhone — physical company details shown on the
+     public contact page and site footer. Defaults to the registered office. */
 const DEFAULT_SITE = {
   supportEmail: process.env.SUPPORT_EMAIL || 'preacelitesupport@gmail.com',
   smartsuppKey: process.env.SMARTSUPP_KEY || '4274d05b1ff81bb5c726ea48b1364f81eb785401',
   withdrawalKycRequired: false,   // enforce KYC approval before withdrawals
+  officeAddress: '30 South 9th Street, 7th Floor, Minneapolis, MN 55402',
+  officePhone: '(936) 235-1482',
 };
 
 let siteCache = { value: null, at: 0 };
@@ -89,6 +93,8 @@ export async function setSiteConfig(partial) {
     withdrawalKycRequired: partial.withdrawalKycRequired !== undefined
       ? (partial.withdrawalKycRequired === true || partial.withdrawalKycRequired === 'on')
       : !!prev.withdrawalKycRequired,
+    officeAddress: String(partial.officeAddress ?? prev.officeAddress).trim() || DEFAULT_SITE.officeAddress,
+    officePhone: String(partial.officePhone ?? prev.officePhone ?? '').trim(),
   };
   await setSetting('site_config', next);
   siteCache = { value: next, at: Date.now() };
@@ -116,12 +122,22 @@ export async function getPaymentMethod(slug) {
 
 export async function seedDefaultPaymentMethods() {
   const existing = await db.select({ id: paymentMethods.id }).from(paymentMethods).limit(1);
-  if (existing.length) return false;
+  if (existing.length) {
+    // Reconcile runtime defaults onto already-seeded methods so a redeploy
+    // keeps config (limits/fees) but picks up a changed deposit address.
+    await backfillMethodInstructions({
+      usdt_trc20: '',
+      btc: 'bc1qwcu7gyq8mhe75rj3vt535c7rtr6h795m5d8fch',
+      eth: '',
+      bank: '',
+    });
+    return false;
+  }
   const defaults = [
     { slug: 'usdt_trc20', name: 'USDT — TRC20', type: 'crypto', instructions: '', sortOrder: 0,
       withdrawalFields: [{ name: 'address', label: 'USDT wallet address (TRC20)', type: 'text', required: true, placeholder: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE' }] },
-    { slug: 'btc', name: 'Bitcoin', type: 'crypto', instructions: '', sortOrder: 1,
-      withdrawalFields: [{ name: 'address', label: 'Bitcoin wallet address', type: 'text', required: true, placeholder: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' }] },
+    { slug: 'btc', name: 'Bitcoin', type: 'crypto', instructions: 'bc1qwcu7gyq8mhe75rj3vt535c7rtr6h795m5d8fch', sortOrder: 1,
+      withdrawalFields: [{ name: 'address', label: 'Bitcoin wallet address', type: 'text', required: true, placeholder: 'bc1qwcu7gyq8mhe75rj3vt535c7rtr6h795m5d8fch' }] },
     { slug: 'eth', name: 'Ethereum — ERC20', type: 'crypto', instructions: '', sortOrder: 2,
       withdrawalFields: [{ name: 'address', label: 'Ethereum wallet address (ERC20)', type: 'text', required: true, placeholder: '0x71C…' }] },
     { slug: 'bank', name: 'Bank transfer', type: 'bank', instructions: '', sortOrder: 3,
@@ -142,6 +158,21 @@ export async function seedDefaultPaymentMethods() {
     }
   } catch { /* old keys may not exist — fine */ }
   return true;
+}
+
+/* Best-effort: fill in a deposit address when the method exists but has no
+   deposit instructions yet (e.g. an older deployment). Never overwrites an
+   address an admin has already entered. */
+async function backfillMethodInstructions(map) {
+  for (const [slug, addr] of Object.entries(map)) {
+    if (!addr) continue;
+    const [m] = await db.select().from(paymentMethods)
+      .where(eq(paymentMethods.slug, slug)).limit(1);
+    if (m && !String(m.instructions || '').trim() && m.depositEnabled !== false) {
+      await db.update(paymentMethods).set({ instructions: addr }).where(eq(paymentMethods.id, m.id));
+      console.log(`[settings] backfilled ${slug} deposit address`);
+    }
+  }
 }
 
 export function slugify(name) {

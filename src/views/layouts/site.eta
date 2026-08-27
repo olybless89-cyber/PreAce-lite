@@ -136,6 +136,13 @@
         not a reliable indicator of future results. Only trade with money you can afford to lose,
         and seek independent advice if you are unsure.
       </p>
+      <% if ((it.site && it.site.officeAddress) || (it.site && it.site.officePhone)) { %>
+        <p class="small" style="margin-top:14px;color:var(--muted,#8FA0BD)">
+          <% if (it.site.officeAddress) { %><%= it.site.officeAddress %><% } %>
+          <% if (it.site.officeAddress && it.site.officePhone) { %> · <% } %>
+          <% if (it.site.officePhone) { %><a href="tel:<%= String(it.site.officePhone).replace(/[^+0-9]/g, '') %>" style="color:inherit;text-decoration:none"><%= it.site.officePhone %></a><% } %>
+        </p>
+      <% } %>
       <p style="margin-top:14px">© <%= it.brand.year %> <%= it.brand.name %>. All rights reserved.</p>
     </div>
   </div>

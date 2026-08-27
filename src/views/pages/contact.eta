@@ -6,6 +6,12 @@
       <dl class="kv" style="margin-top:24px;max-width:340px">
         <dt>Support</dt><dd style="font-family:var(--ff-body)">support@<%= it.domain || 'preace-lite.com' %></dd>
         <dt>Compliance</dt><dd style="font-family:var(--ff-body)">compliance@<%= it.domain || 'preace-lite.com' %></dd>
+        <% if (it.site && it.site.officePhone) { %>
+        <dt>Phone</dt><dd style="font-family:var(--ff-body)"><a href="tel:<%= String(it.site.officePhone).replace(/[^+0-9]/g, '') %>" style="color:inherit;text-decoration:none"><%= it.site.officePhone %></a></dd>
+        <% } %>
+        <% if (it.site && it.site.officeAddress) { %>
+        <dt>Office</dt><dd style="font-family:var(--ff-body)"><%= it.site.officeAddress %></dd>
+        <% } %>
         <dt>Hours</dt><dd style="font-family:var(--ff-body)">24 / 7</dd>
       </dl>
     </div>

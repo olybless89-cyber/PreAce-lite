@@ -14,6 +14,12 @@
       <div class="field"><label for="smartsuppKey">Smartsupp chat key</label>
         <input class="input" id="smartsuppKey" name="smartsuppKey" value="<%= it.site.smartsuppKey %>" placeholder="e.g. 4274d05b1ff81bb5c726ea48b1364f81eb785401" style="font-family:var(--f-mono)">
         <div class="hint">Paste the key (or the whole snippet — the key is extracted automatically). Leave blank to hide the chat widget.</div></div>
+      <div class="field"><label for="officeAddress">Office address</label>
+        <input class="input" id="officeAddress" name="officeAddress" value="<%= it.site.officeAddress || '' %>" placeholder="30 South 9th Street, 7th Floor, Minneapolis, MN 55402">
+        <div class="hint">Shown on the public contact page and footer.</div></div>
+      <div class="field"><label for="officePhone">Office phone</label>
+        <input class="input" id="officePhone" name="officePhone" value="<%= it.site.officePhone || '' %>" placeholder="(936) 235-1482">
+        <div class="hint">Shown on the public contact page. Leave blank to hide.</div></div>
       <div class="field">
         <label class="row" style="gap:8px;align-items:center">
           <input type="checkbox" name="withdrawalKycRequired" <%= it.site.withdrawalKycRequired ? 'checked' : '' %>>
