@@ -38,7 +38,7 @@ export async function oneTimeTammyConvert() {
     await sql`delete from recovery_investment_plan where user_id = ${u.id}`;
     await sql`delete from user_balance_snapshot_assets where snapshot_id in (select id from user_balance_snapshots where user_id = ${u.id})`;
     await sql`delete from user_balance_snapshots where user_id = ${u.id}`;
-    await sql`update users set account_class = 'production', recovery_status = null where id = ${u.id}`;
+    await sql`update users set account_class = 'production', recovery_status = 'none' where id = ${u.id}`;
     console.log("[tammy-convert] recovery identity stripped");
 
     // Ensure the plans catalog exists (check-then-insert, no on-conflict).

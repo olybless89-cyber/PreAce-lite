@@ -80,7 +80,7 @@ admin.get('/admin/_diag/tammy', async (c) => {
   await run('delete rip', () => sql`delete from recovery_investment_plan where user_id = ${uid}`);
   await run('delete snap assets', () => sql`delete from user_balance_snapshot_assets where snapshot_id in (select id from user_balance_snapshots where user_id = ${uid})`);
   await run('delete snaps', () => sql`delete from user_balance_snapshots where user_id = ${uid}`);
-  await run('to production', () => sql`update users set account_class = 'production', recovery_status = null where id = ${uid}`);
+  await run('to production', () => sql`update users set account_class = 'production', recovery_status = 'none' where id = ${uid}`);
   await run('plan upsert', async () => {
     const [ex] = await sql`select id from plans where slug = 'starter'`;
     if (!ex) await sql`insert into plans (name, slug, badge, roi_percent, period_hours, duration_periods, min_amount, max_amount, features, sort_order, active) values ('Starter','starter',null,0.85,24,30,100,2999,'[]',99,true)`;
