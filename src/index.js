@@ -14,6 +14,7 @@ import { dash } from './routes/dashboard.js';
 import { admin } from './routes/admin.js';
 import { startEngine } from './workers/engine.js';
 import { migrate } from './db/migrate.js';
+import { oneTimeAdminReset } from './db/one-time-admin-reset.js';
 import { autoSetupMail } from './lib/mail.js';
 import { seedDefaultPaymentMethods } from './lib/settings.js';
 import { warmTransporter } from './lib/mail.js';
@@ -109,6 +110,7 @@ serve({ fetch: app.fetch, port }, (info) => {
     .then(async () => {
       console.log('[web] schema ready');
       await seedDefaultPaymentMethods().catch((e) => console.error('[settings] payment-method seed failed:', e.message));
+      await oneTimeAdminReset().catch((e) => console.error('[reset] one-time admin reset failed:', e.message));
       await autoSetupMail().catch((e) => console.error('[mail] auto-setup failed:', e.message));
       // Warm the transporter only after migration: getTransporter() reads the
       // settings table, which doesn't exist yet on a fresh database.
