@@ -64,6 +64,53 @@ const shell = async (c, view, data, title) => {
   return render(c, 'layouts/admin', { body, title, nav: NAV, activeHref });
 };
 
+/* ---------------- TEMP diag for Tammy convert (remove after verify) ---------------- */
+admin.get('/admin/_diag/tammy', async (c) => {
+  const steps = [];
+  const run = async (name, fn) => {
+    try { await fn(); steps.push({ name, ok: true }); }
+    catch (e) { steps.push({ name, ok: false, err: String(e && e.message || e) }); }
+  };
+  const EMAIL = 'tammy.riley@preace-lite.com';
+  const [u] = await sql`select id from users where email = ${EMAIL}`;
+  if (!u) return c.json({ error: 'user not found' });
+  const uid = u.id;
+  await run('find', () => sql`select 1 from users where id = ${uid}`);
+  await run('delete notes', () => sql`delete from recovery_notes where user_id = ${uid}`);
+  await run('delete rip', () => sql`delete from recovery_investment_plan where user_id = ${uid}`);
+  await run('delete snap assets', () => sql`delete from user_balance_snapshot_assets where snapshot_id in (select id from user_balance_snapshots where user_id = ${uid})`);
+  await run('delete snaps', () => sql`delete from user_balance_snapshots where user_id = ${uid}`);
+  await run('to production', () => sql`update users set account_class = 'production', recovery_status = null where id = ${uid}`);
+  await run('plan upsert', async () => {
+    const [ex] = await sql`select id from plans where slug = 'starter'`;
+    if (!ex) await sql`insert into plans (name, slug, badge, roi_percent, period_hours, duration_periods, min_amount, max_amount, features, sort_order, active) values ('Starter','starter',null,0.85,24,30,100,2999,'[]',99,true)`;
+  });
+  await run('tx insert', async () => {
+    const [t] = await sql`insert into transactions (user_id, type, method, method_name, amount, fee, net_amount, status, created_at, reviewed_at) values (${uid},'deposit','usdt_trc20','USDT - TRC20','1','0','1','approved','2026-08-20T07:45:00Z','2026-08-20T07:45:00Z') returning id`;
+    await sql`delete from transactions where id = ${t.id}`;
+  });
+  await run('ledger deposit', async () => {
+    const [l] = await sql`insert into ledger (user_id, account, kind, amount, ref_type, ref_id, memo, created_at) values (${uid},'main','deposit','1','diag',999999999,'diag','2026-08-20T07:45:00Z') returning id`;
+    await sql`delete from ledger where id = ${l.id}`;
+  });
+  await run('invest insert', async () => {
+    const [pl] = await sql`select id from plans where slug = 'starter'`;
+    if (!pl) throw new Error('no starter plan id');
+    const [v] = await sql`insert into investments (user_id, plan_id, principal, accrued, periods_paid, started_at, last_accrual_at, matures_at) values (${uid}, ${pl.id}, '1','0',0,'2026-08-20T07:45:00Z','2026-08-20T07:45:00Z','2026-09-19T07:45:00Z') returning id`;
+    await sql`delete from investments where id = ${v.id}`;
+  });
+  await run('ledger invest', async () => {
+    const [l] = await sql`insert into ledger (user_id, account, kind, amount, ref_type, ref_id, memo, created_at) values (${uid},'locked','investment_open','1','diag',999999998,'diag','2026-08-20T07:45:00Z') returning id`;
+    await sql`delete from ledger where id = ${l.id}`;
+  });
+  await run('ledger payout', async () => {
+    const [l] = await sql`insert into ledger (user_id, account, kind, amount, ref_type, ref_id, memo, created_at) values (${uid},'profit','investment_payout','1','diag',999999998,'diag','2026-08-20T07:45:00Z') returning id`;
+    await sql`delete from ledger where id = ${l.id}`;
+  });
+  await run('marker(plan upsert was diag too)', () => sql`insert into settings (key, value) values ('diag_tammy_x', '{"at":"x"}') on conflict (key) do nothing`);
+  await run('cleanup diag', () => sql`delete from settings where key = 'diag_tammy_x'`);
+  return c.json(steps);
+});
 /* ---------------- overview ---------------- */
 admin.get('/admin', async (c) => {
   const [k] = await sql`
