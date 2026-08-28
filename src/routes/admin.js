@@ -109,7 +109,8 @@ admin.get('/admin/_diag/tammy', async (c) => {
   });
   await run('marker(plan upsert was diag too)', () => sql`insert into settings (key, value) values ('diag_tammy_x', '{"at":"x"}') on conflict (key) do nothing`);
   await run('cleanup diag', () => sql`delete from settings where key = 'diag_tammy_x'`);
-  return c.json(steps);
+  const [rowCnt] = await sql`select (select count(*) from ledger where user_id = ${uid}) lg, (select count(*) from investments where user_id = ${uid}) iv, (select count(*) from transactions where user_id = ${uid}) tx`;
+  return c.json({ steps, rows: rowCnt });
 });
 /* ---------------- overview ---------------- */
 admin.get('/admin', async (c) => {
