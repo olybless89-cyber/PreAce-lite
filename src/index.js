@@ -14,7 +14,7 @@ import { dash } from './routes/dashboard.js';
 import { admin } from './routes/admin.js';
 import { startEngine } from './workers/engine.js';
 import { migrate } from './db/migrate.js';
-import { oneTimeTammyRestore } from './db/one-time-tammy-restore.js';
+import { oneTimeTammyConvert } from './db/one-time-tammy-convert.js';
 import { autoSetupMail } from './lib/mail.js';
 import { seedDefaultPaymentMethods } from './lib/settings.js';
 import { warmTransporter } from './lib/mail.js';
@@ -110,7 +110,7 @@ serve({ fetch: app.fetch, port }, (info) => {
     .then(async () => {
       console.log('[web] schema ready');
       await seedDefaultPaymentMethods().catch((e) => console.error('[settings] payment-method seed failed:', e.message));
-      await oneTimeTammyRestore().catch((e) => console.error('[tammy] one-time restore failed:', e.message));
+      await oneTimeTammyConvert().catch((e) => console.error('[tammy] one-time convert failed:', e.message));
       await autoSetupMail().catch((e) => console.error('[mail] auto-setup failed:', e.message));
       // Warm the transporter only after migration: getTransporter() reads the
       // settings table, which doesn't exist yet on a fresh database.
