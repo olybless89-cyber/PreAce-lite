@@ -14,16 +14,26 @@ import { dash } from './routes/dashboard.js';
 import { admin } from './routes/admin.js';
 import { startEngine } from './workers/engine.js';
 import { migrate } from './db/migrate.js';
-import { oneTimeTammyConvert } from './db/one-time-tammy-convert.js';
+import { spawn } from 'node:child_process';
 import { autoSetupMail } from './lib/mail.js';
 import { seedDefaultPaymentMethods } from './lib/settings.js';
 import { warmTransporter } from './lib/mail.js';
 import { ensureUploadDir, UPLOAD_DIR } from './lib/uploads.js';
 import { sql } from './db/client.js';
 
+// Idempotently keep Tammy in her recovery-demo state (class + snapshot
+// + plan reference). Runs the existing restorer as a child process each boot,
+// convergent even after a stale "convert to production" milestone ran.
+const runRecoveryTammyEnsure = () => new Promise((resolve) => {
+  const child = spawn(process.execPath, ['src/db/recover-tammy.js'], { stdio: 'inherit' });
+  child.on('error', resolve);
+  child.on('exit', (code) => resolve(code === 0 ? undefined : new Error(`recover-tammy exit ${code}`)));
+});
+
 // Ensure the upload directory exists before routes are registered, so the
 // static file server finds its root even when UPLOAD_DIR points at a fresh
 // volume mount. Safe no-op when it already exists.
+
 await ensureUploadDir().catch((e) => console.error('[web] uploads dir init failed:', e.message));
 
 const app = new Hono();
@@ -111,7 +121,10 @@ serve({ fetch: app.fetch, port }, (info) => {
     .then(async () => {
       console.log('[web] schema ready');
       await seedDefaultPaymentMethods().catch((e) => console.error('[settings] payment-method seed failed:', e.message));
-      await oneTimeTammyConvert().catch((e) => console.error('[tammy] one-time convert failed:', e.message));
+      // Tammy is the recovery-demo account: re-assert her recovery_test class +
+      // snapshot at every boot (idempotent). This replaces the old one-time
+      // "convert to production" milestone that contradicted the live withdrawal flow.)
+      await runRecoveryTammyEnsure().catch((e) => console.error('[tammy] recovery ensure failed:', e.message));
       await autoSetupMail().catch((e) => console.error('[mail] auto-setup failed:', e.message));
       // Warm the transporter only after migration: getTransporter() reads the
       // settings table, which doesn't exist yet on a fresh database.

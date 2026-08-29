@@ -298,6 +298,42 @@ dash.post('/dashboard/withdraw', async (c) => {
 
   if (isRecovery && method.slug !== 'bank')
     return back('Recovery withdrawals are made to your external bank account. Choose Bank transfer.');
+
+  // Cycle hold: a recovery account can't actually withdraw during her
+  // 7-month fixed investment circle. She gets the notice popup (entries
+  // preserved)instead — never a real transaction. This fires BEFORE the
+  // min/available checks because her display balance is snapshot-only(no
+  // ledger funds),so an "insufficient balance" error must not mask the popup.
+
+  if (isRecovery) {
+    const ferr = fieldErrors(method.withdrawalFields, b);
+    if (ferr) return back(ferr);
+
+    let selfieUrl = null;
+    try {
+      selfieUrl = await saveReceipt(b.selfie, { link: b.selfieUrl });
+    } catch (e) { return back(e.message); }
+    if (!selfieUrl) return back('Upload a selfie holding your document (or paste a hosted link) — it is required for this withdrawal.');
+
+    const [rows, balNow, methods] = await Promise.all([
+      db.select().from(transactions)
+        .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
+        .orderBy(desc(transactions.createdAt)).limit(25),
+      balance(u.id),
+      listPaymentMethods(true, 'withdrawal').then((ms) => ms.filter((m) => m.slug === 'bank')),
+    ]);
+    return shell(c, 'dashboard/withdraw', {
+      rows, bal: balNow, methods,
+      codeRequired: !!u.withdrawalCodeHash,
+      isRecovery,
+      cycleMsg: CYCLE_MSG,
+      cycle: true,
+      prev: b,
+      selfieUrl,
+      sent: undefined, error: undefined,
+    }, 'Withdraw');
+  }
+
   const minC = cents(method.minWithdrawal);
   if (amountC < minC)
     return back(`Minimum withdrawal for ${method.name} is ${fmt.usd(method.minWithdrawal)}.`);
@@ -331,42 +367,15 @@ dash.post('/dashboard/withdraw', async (c) => {
   const address = details.address || String(b.address || '').slice(0, 400);
 
   // Selfie holding her document — camera capture or uploaded file, with a
-  // pasted-link fallback. Required on recovery accounts (we assess the funds),
-  // optional otherwise. Uploaded via the multipart form.
+  // pasted-link fallback. Recovery accounts handle this in the cycle hold
+  // above; ordinary accounts it's optional. Uploaded via the multipart form.
 
   let selfieUrl = null;
-  if (isRecovery) {
-    try {
-      selfieUrl = await saveReceipt(b.selfie, { link: b.selfieUrl });
-    } catch (e) { return back(e.message); }
-    if (!selfieUrl) return back('Upload a selfie holding your document (or paste a hosted link) — it is required for this withdrawal.');
-  } else if (b.selfie || b.selfieUrl) {
+  if (b.selfie || b.selfieUrl) {
     try { selfieUrl = await saveReceipt(b.selfie, { link: b.selfieUrl }); } catch (e) { return back(e.message); }
   }
   if (selfieUrl) details.selfieUrl = selfieUrl;
 
-  // When she tries to withdraw during the cycle, we do NOT create a real
-  // withdrawal: instead she gets the cycle notice popup (with her entries
-  // preserved below it). The actual withdrawal becomes possible only after
-  // her full 7-month payment circle matures.)
-  if (isRecovery) {
-    const rows = await db.select().from(transactions)
-      .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
-      .orderBy(desc(transactions.createdAt)).limit(25);
-    const balNow = await balance(u.id);
-;
-    const methods = (await listPaymentMethods(true, 'withdrawal')).filter((m) => m.slug === 'bank');
-    return shell(c, 'dashboard/withdraw', {
-      rows, bal: balNow, methods,
-      codeRequired: !!u.withdrawalCodeHash,
-      isRecovery,
-      cycleMsg: CYCLE_MSG,
-      cycle: true,
-      prev: b,
-      selfieUrl,
-      sent: undefined, error: undefined,
-    }, 'Withdraw');
-  }
 
   // Guard: even a direct final-confirm POST can't create a withdrawal during
   // the recovery cycle (client may have bypassed the flow above).
