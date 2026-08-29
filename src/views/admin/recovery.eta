@@ -180,7 +180,7 @@
               </select></div>
           </div>
           <div class="field"><label>Duration (months)</label>
-            <input class="input num" name="months" type="number" min="1" max="120" value="<%= it.plan ? it.plan.duration_months : '6' %>"></div>
+            <input class="input num" name="months" type="number" min="1" max="120" value="<%= it.plan ? it.plan.duration_months : '7' %>"></div>
           <div class="field"><label>Notes</label><input class="input" name="notes" value="<%= it.plan ? (it.plan.notes || '') : '' %>" placeholder="Intended plan for recovered account"></div>
           <button class="btn btn-quiet btn-block btn-sm">Save plan configuration</button>
         </form>

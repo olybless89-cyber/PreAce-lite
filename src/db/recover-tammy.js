@@ -82,9 +82,9 @@ async function main() {
     await sql`
       insert into recovery_investment_plan
         (user_id, contribution_amount, frequency, duration_months, status, source, notes, created_by)
-      values (${user.id}, '750.00', 'biweekly', 6, 'recovery_reference', 'admin_recovery',
+      values (${user.id}, '750.00', 'biweekly', 7, 'recovery_reference', 'admin_recovery',
               'Intended plan for recovered account. RECOVERY REFERENCE ONLY — no contributions were recorded.', 0)`;
-    console.log('[recover-tammy] plan configuration recorded: $750 biweekly / 6 months (recovery_reference)');
+    console.log('[recover-tammy] plan configuration recorded: $750 biweekly / 7 months (recovery_reference)');
   }
 
   // 5) Recovery notes trail.

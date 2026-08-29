@@ -1418,3 +1418,22 @@ code.input{
 .mobile-bottom-nav a.on{color:var(--w-accent2)}
 .mobile-bottom-nav a.on svg{filter:drop-shadow(0 0 6px rgba(47,128,255,.55))}
 .mobile-bottom-nav a:not(.on):hover{color:var(--w-ink2)}
+
+/* ---- Withdraw: selfie camera + cycle-notice modal ---- */
+.wd-selfie-cam video{width:100%;display:block;background:#000}
+.wd-selfie-cam .row{justify-content:center}
+.wd-selfie-row input[type=file]{color:var(--w-ink3)}
+.wd-modal-backdrop{position:fixed;inset:0;background:rgba(4,7,26,.72);backdrop-filter:blur(6px);z-index:120;display:grid;place-items:center;padding:18px;visibility:hidden;opacity:0;transition:opacity .22s var(--ease),visibility .22s}
+.wd-modal-backdrop .wd-modal{background:linear-gradient(165deg,var(--w-card2),var(--w-card) 78%);border:1px solid var(--w-line);border-radius:var(--w-round);box-shadow:var(--w-shadow-pop);max-width:440px;width:100%;padding:26px 24px;position:relative;max-height:min(86vh, 640px);overflow:auto;transform:translateY(10px);transition:transform .22s var(--ease)}
+.wd-modal-backdrop.open{visibility:visible;opacity:1}
+.wd-modal-backdrop.open .wd-modal{transform:none}
+.wd-modal__dot{display:block;width:10px;height:10px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 5px rgba(245,165,36,.18);margin-bottom:16px}
+.wd-modal h3{font-family:var(--w-ff);color:var(--w-ink);font-size:1.15rem;line-height:1.4;margin-bottom:10px}
+.wd-modal p{color:var(--w-ink2);line-height:1.65;margin-bottom:18px}
+.wd-modal__actions{margin-top:4px}
+body.wd-modal-lock{overflow:hidden}
+@media (max-width:399px){
+  .wd-modal .btn{font-size:.8rem}
+  .wd-selfie-row{flex-direction:column;align-items:stretch}
+  .wd-selfie-row .btn{width:100%}
+}

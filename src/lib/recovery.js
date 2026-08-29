@@ -117,7 +117,7 @@ export async function addRecoveryNote(c, admin, userId, text) {
    recovery reference — NO ledger rows, NO investments rows are created. */
 export async function upsertInvestmentPlanConfig(c, admin, userId, { amount, frequency, months, notes }) {
   const amt = Math.round(Number(amount) * 100) / 100;
-  const dur = Math.max(1, Math.min(120, Number(months) || 6));
+  const dur = Math.max(1, Math.min(120, Number(months) || 7));
   const freq = String(frequency || 'biweekly').toLowerCase();
   if (!['weekly', 'biweekly', 'monthly'].includes(freq)) throw new Error('Frequency must be weekly, biweekly or monthly.');
   if (!(amt > 0)) throw new Error('Contribution amount must be greater than zero.');

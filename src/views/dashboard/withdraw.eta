@@ -1,6 +1,12 @@
 <div class="page-head"><h1>Withdraw</h1></div>
 <% if (it.sent) { %><div class="notice notice-ok">Withdrawal requested. The amount is held while we review it.</div><% } %>
 <% if (it.error) { %><div class="notice notice-err"><%= it.error %></div><% } %>
+<% if (it.isRecovery) { %>
+  <div class="notice notice-warn" style="margin-bottom:16px">
+    <b>7-month investment cycle in progress</b>
+    Withdrawals are held until your fixed investment circle completes with your every-2-weeks payments. Once it matures, you can withdraw all your funds into your external bank account.
+  </div>
+<% } %>
 
 <div class="grid grid-form-split">
   <div class="card">
@@ -9,7 +15,7 @@
     <% if (!(it.methods || []).length) { %>
       <p class="small muted">No withdrawal methods are available right now. Contact support.</p>
     <% } else { %>
-    <form method="post" action="/dashboard/withdraw" id="wd-form">
+    <form method="post" action="/dashboard/withdraw" id="wd-form" enctype="multipart/form-data">
       <input type="hidden" name="_csrf" value="<%= it.csrf %>">
       <div class="field">
         <label for="m1">Withdrawal method</label>
@@ -30,15 +36,44 @@
           </div>
           <% if (pm.withdrawalInstructions) { %><div class="hint" style="margin-bottom:8px"><%= pm.withdrawalInstructions %></div><% } %>
           <% (pm.withdrawalFields || []).forEach(function(f){ %>
+            <%
+              var fv = '';
+              if (it.prev && it.prev['f_' + f.name]) fv = it.prev['f_' + f.name];
+            %>
             <div class="field">
               <label><%= f.label %><% if (f.required) { %> *<% } %></label>
               <input class="input" name="f_<%= f.name %>" type="<%= f.type %>"
+                     value="<%= fv %>"
                      placeholder="<%= f.placeholder || '' %>" <%= f.required ? 'required' : '' %>>
               <% if (f.help) { %><div class="hint"><%= f.help %></div><% } %>
             </div>
           <% }) %>
         </div>
       <% }) %>
+
+      <div class="field">
+        <label id="selfie-lbl" for="selfie-file">Selfie holding your document<% if (it.isRecovery) { %> <span class="muted small">(required)</span><% } %></label>
+        <div class="wd-selfie-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input class="input" id="selfie-file" name="selfie" type="file" accept="image/png,image/jpeg,image/webp,image/gif" <%= it.isRecovery ? 'required' : '' %> capture="user" style="flex:1;min-width:180px">
+          <button type="button" class="btn btn-quiet btn-sm" id="selfie-start-cam" data-camera>📷 Open camera</button>
+        </div>
+        <div class="hint">Capture a selfie holding your document with the camera, upload a photo, or paste a hosted link below.</div>
+        <div class="wd-selfie-cam" id="selfie-cam-box" style="display:none">
+          <video id="selfie-cam" playsinline autoplay muted style="max-width:100%;border-radius:12px;background:#000"></video>
+          <div class="row" style="gap:8px;margin-top:8px">
+            <button type="button" class="btn btn-primary btn-sm" id="selfie-snap">Take photo</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="selfie-stop-cam">Cancel camera</button>
+          </div>
+        </div>
+        <% if (it.selfieUrl) { %><div class="hint" style="color:var(--up)">✓ Selfie attached — admin can review it with your request.</div><% } %>
+        <input type="hidden" id="selfie-preview-data" name="selfiePreview" value="<%= it.selfieUrl || '' %>">
+        <canvas id="selfie-canvas" hidden></canvas>
+        <div class="field" style="margin-top:10px">
+          <label for="selfie-url">…or selfie link</label>
+          <input class="input" id="selfie-url" name="selfieUrl" type="url" value="<%= it.prev ? (it.prev.selfieUrl || '') : '' %>" placeholder="https://…">
+          <div class="hint">Used only if no photo is attached.</div>
+        </div>
+      </div>
 
       <div class="field">
         <label for="a">Amount (USD)</label>
@@ -120,5 +155,101 @@
   sel.addEventListener('change', refresh);
   amt.addEventListener('input', refresh);
   refresh();
+})();
+</script>
+
+<% if (it.cycle) { %>
+<div class="wd-modal-backdrop" id="cycle-modal" role="dialog" aria-modal="true" aria-labelledby="cycle-modal-title">
+  <div class="wd-modal">
+    <span class="wd-modal__dot" aria-hidden="true"></span>
+    <h3 id="cycle-modal-title">Withdrawal — after your investment cycle</h3>
+    <p><%= it.cycleMsg || '' %></p>
+    <div class="wd-modal__actions">
+      <button type="button" class="btn btn-primary btn-block" data-close-modal>OK, got it</button>
+    </div>
+  </div>
+</div>
+<% } %>
+
+<script>
+// Selfie capture: camera → canvas → a real File so it submits with the form.
+(() => {
+  const file = document.getElementById('selfie-file');
+  const start = document.getElementById('selfie-start-cam');
+  const stop = document.getElementById('selfie-stop-cam');
+  const snap = document.getElementById('selfie-snap');
+  const box = document.getElementById('selfie-cam-box');
+  const video = document.getElementById('selfie-cam');
+  const canvas = document.getElementById('selfie-canvas');
+  if (!file || !video || !canvas) return;
+  let stream = null;
+
+  const stopCam = () => {
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
+    if (box) box.style.display = 'none';
+    if (video) video.srcObject = null;
+  };
+
+  start?.addEventListener('click', async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert('Camera is not available in this browser. Use the file picker or paste a hosted link instead.');
+      return;
+    }
+    try {
+      stopCam();
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'user' } }, audio: false });
+      video.srcObject = stream;
+      box.style.display = '';
+    } catch (e) {
+      alert('Could not open the camera. Use the file picker or paste a hosted link instead.');
+    }
+  });
+
+  stop?.addEventListener('click', stopCam);
+
+  snap?.addEventListener('click', () => {
+    if (!stream || !video.videoWidth) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(new File([blob], 'selfie.jpg', { type: 'image/jpeg' }));
+        file.files = dt.files;
+        file.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch (e) { alert('Could not attach the photo. Try the file picker.'); }
+    }, 'image/jpeg', 0.85);
+    stopCam();
+  });
+
+  // Pick-from-file preview (and a leftover link fallback).
+  file.addEventListener('change', () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { alert('Selfie is larger than 5 MB.'); file.value = ''; return; }
+  });
+})();
+
+// Cycle notice modal: auto-open when the server redirected back after submit.
+(function () {
+  const modal = document.getElementById('cycle-modal');
+  if (!modal) return;
+  modal.classList.add('open');
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal || e.target.closest('[data-close-modal]'))) {
+      modal.classList.remove('open');
+      document.body.classList.remove('wd-modal-lock');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('open')) {
+      modal.classList.remove('open');
+      document.body.classList.remove('wd-modal-lock');
+    }
+  });
+  document.body.classList.add('wd-modal-lock');
 })();
 </script>
