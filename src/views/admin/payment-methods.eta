@@ -1,4 +1,4 @@
-<% const TYPES = [['crypto','Cryptocurrency'],['bank','Bank transfer'],['mobile','Mobile money'],['giftcard','Gift card'],['gateway','Payment gateway'],['manual','Manual payment'],['other','Other']]; %>
+<% const TYPES = [['crypto','Cryptocurrency'],['card','Debit / credit card'],['bank','Bank transfer'],['mobile','Mobile money'],['giftcard','Gift card'],['gateway','Payment gateway'],['manual','Manual payment'],['other','Other']]; %>
 
 <div class="page-head"><div><h1>Payment methods</h1>
   <p class="small" style="margin:4px 0 0">Funding and withdrawal methods clients see. Limits, fees, directions and required fields are per-method — no code changes needed.</p></div></div>

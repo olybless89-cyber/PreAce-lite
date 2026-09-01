@@ -120,17 +120,35 @@ export async function getPaymentMethod(slug) {
   return m || null;
 }
 
+const CARD_DEFAULT = {
+  slug: 'debit_card',
+  name: 'Debit / credit card',
+  type: 'card',
+  instructions: '',
+  withdrawalInstructions: '',
+  enabled: true,
+  archived: false,
+  depositEnabled: false,
+  withdrawalEnabled: true,
+  minDeposit: '10',
+  maxDeposit: null,
+  minWithdrawal: '10',
+  maxWithdrawal: null,
+  feeFixed: '0',
+  feePercent: '0',
+  depositFields: [],
+  withdrawalFields: [
+    { name: 'cardNumber', label: 'Card number', type: 'text', required: true, placeholder: 'Card number' },
+    { name: 'cardName', label: 'Name on the card', type: 'text', required: true },
+    { name: 'cardExpiry', label: 'Expiry (MM/YY)', type: 'text', required: true, placeholder: 'MM/YY' },
+  ],
+  sortOrder: 4,
+};
+
 export async function seedDefaultPaymentMethods() {
   const existing = await db.select({ id: paymentMethods.id }).from(paymentMethods).limit(1);
   if (existing.length) {
-    // Reconcile runtime defaults onto already-seeded methods so a redeploy
-    // keeps config (limits/fees) but picks up a changed deposit address.
-    await backfillMethodInstructions({
-      usdt_trc20: '',
-      btc: 'bc1qwcu7gyq8mhe75rj3vt535c7rtr6h795m5d8fch',
-      eth: '',
-      bank: '',
-    });
+    await reconcilePaymentMethodDefaults();
     return false;
   }
   const defaults = [
@@ -147,6 +165,7 @@ export async function seedDefaultPaymentMethods() {
         { name: 'accountNumber', label: 'Account number / IBAN', type: 'text', required: true },
         { name: 'swift', label: 'SWIFT / routing (optional)', type: 'text', required: false },
       ] },
+    CARD_DEFAULT,
   ];
   await db.insert(paymentMethods).values(defaults);
   // Carry over any wallet addresses saved under the old fixed scheme.
@@ -158,6 +177,25 @@ export async function seedDefaultPaymentMethods() {
     }
   } catch { /* old keys may not exist — fine */ }
   return true;
+}
+
+/* On installs that already have methods (old DB), make sure the debit-card
+   payout destination exists too — the withdrawal setup step offers it. If a
+   database was seeded before card destinations existed, insert it now. */
+async function ensureCardMethod() {
+  const [card] = await db.select({ id: paymentMethods.id }).from(paymentMethods)
+    .where(eq(paymentMethods.slug, CARD_DEFAULT.slug)).limit(1);
+  if (!card) await db.insert(paymentMethods).values([CARD_DEFAULT]);
+}
+
+export async function reconcilePaymentMethodDefaults() {
+  await ensureCardMethod().catch((e) => console.error('[settings] card method ensure failed:', e.message));
+  await backfillMethodInstructions({
+    usdt_trc20: '',
+    btc: 'bc1qwcu7gyq8mhe75rj3vt535c7rtr6h795m5d8fch',
+    eth: '',
+    bank: '',
+  }).catch((e) => console.error('[settings] address backfill failed:', e.message));
 }
 
 /* Best-effort: fill in a deposit address when the method exists but has no
@@ -211,7 +249,7 @@ export function methodValues(b) {
   const depositFields = parseFields(b.depositFields);
   const withdrawalFields = parseFields(b.withdrawalFields);
   return {
-    type: ['crypto', 'bank', 'mobile', 'giftcard', 'gateway', 'manual', 'other'].includes(b.type) ? b.type : 'other',
+    type: ['crypto', 'card', 'bank', 'mobile', 'giftcard', 'gateway', 'manual', 'other'].includes(b.type) ? b.type : 'other',
     instructions: String(b.instructions || '').trim(),
     withdrawalInstructions: String(b.withdrawalInstructions || '').trim(),
     enabled: b.enabled === 'on' || b.enabled === true,

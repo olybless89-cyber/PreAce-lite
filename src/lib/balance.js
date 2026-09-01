@@ -101,7 +101,9 @@ export async function investmentCycleHold(userId) {
     isRecovery,
     recoveryStatus: recUser?.recovery_status || 'none',
     message: isRecovery
-      ? `Withdrawals are held until your ${monthsLabel}-month fixed investment cycle completes. Once your every-2-weeks payments complete the full investment cycleand the investment matures, you can withdraw all your funds into your external bank account.`
+      ? (matured
+          ? `Your ${monthsLabel}-month investment cycle has completed. You can now withdraw your funds to your bank account.`
+          : `Complete your ${monthsLabel}-month investment payment first — until your every-2-weeks payments complete the full investment cycleand the investment matures, withdrawals stay on hold. After the payment for the cycle is completed, you can withdraw your funds to your bank(or debit card.`)
       : `Withdrawals are locked until your ${periodLabel} investment cycle (${inv.plan_name}) matures. Once the plan completes, you can withdraw all your funds into your external bank, wallet or preferred payment method.`,
   };
 }
