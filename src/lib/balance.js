@@ -40,6 +40,72 @@ export function assetMeta(asset) {
   };
 }
 
+/* ---------------------------------------------------------------------
+   Investment cycle hold.
+   -----------------------------------------------------------------
+   A user on a fixed investment plan cannot withdraw until EVERY active
+   investment is mature (matures_at >= now). This applies to every
+   account class — recovered/test accounts (display balance from a
+   snapshot, with an admin-authored plan reference) and ordinary
+   production accounts (real ledger funds locked in an active plan).
+
+   Returns a human-ready summary used by the withdrawal page + the
+   dashboard cycle card. null means withdrawals are allowed.
+   ------------------------------------------------------------------- */
+export async function investmentCycleHold(userId) {
+  const [inv] = await sql`
+    select p.name plan_name, p.slug plan_slug,
+           p.roi_percent::text roi, p.period_hours,
+           p.duration_periods, i.principal::text principal,
+           i.matures_at
+    from investments i join plans p on p.id = i.plan_id
+    where i.user_id = ${userId} and i.status = 'active'
+    order by i.matures_at asc
+    limit 1`;
+  if (!inv) return null;
+
+  const months = Math.max(1, Math.round(Number(inv.duration_periods) * Number(inv.period_hours) / (24 * 30.44)));
+  const matured = new Date(inv.matures_at).getTime() <= Date.now();
+
+  const [recPlan] = await sql`
+    select contribution_amount::text contribution_amount,
+           frequency, duration_months
+    from recovery_investment_plan
+    where user_id = ${userId} order by id desc limit 1`;
+
+  const [recUser] = await sql`
+    select account_class::text account_class, recovery_status
+    from users where id = ${userId}`;
+  const isRecovery = recUser?.account_class === RECOVERY_TEST;
+  const monthsLabel = recPlan?.duration_months || months;
+  const freqLabel = recPlan?.frequency === 'monthly' ? 'every month'
+    : recPlan?.frequency === 'weekly' ? 'every week'
+    : 'every 2 weeks';
+
+  const totalHours = Number(inv.duration_periods) * Number(inv.period_hours);
+  const periodLabel = totalHours < (24 * 62) ? (Math.round(totalHours / 24) + '-day')
+    : (monthsLabel + '-month');
+
+  return {
+    active: !matured,
+    matured,
+    planName: inv.plan_name,
+    planSlug: inv.plan_slug,
+    principal: Number(inv.principal),
+    maturesAt: new Date(inv.matures_at),
+    months: monthsLabel,
+    monthsFromPlan: Number(recPlan?.duration_months || months),
+    frequency: recPlan?.frequency || 'biweekly',
+    frequencyLabel: freqLabel,
+    contributionAmount: recPlan ? Number(recPlan.contribution_amount) : null,
+    isRecovery,
+    recoveryStatus: recUser?.recovery_status || 'none',
+    message: isRecovery
+      ? `Withdrawals are held until your ${monthsLabel}-month fixed investment cycle completes. Once your every-2-weeks payments complete the full investment cycleand the investment matures, you can withdraw all your funds into your external bank account.`
+      : `Withdrawals are locked until your ${periodLabel} investment cycle (${inv.plan_name}) matures. Once the plan completes, you can withdraw all your funds into your external bank, wallet or preferred payment method.`,
+  };
+}
+
 /* The latest recovery snapshot for a user, with its asset rows. */
 export async function activeRecoverySnapshot(userId) {
   const [s = null] = await sql`

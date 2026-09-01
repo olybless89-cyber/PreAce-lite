@@ -9,7 +9,7 @@ import {
 import { requireUser, hash, verify } from '../lib/auth.js';
 import { render, eta } from '../lib/view.js';
 import { portfolio, balance, traderStats, myCopyPositions, unreadCount, livePrices } from '../lib/stats.js';
-import { getBalanceOverview } from '../lib/balance.js';
+import { getBalanceOverview, investmentCycleHold } from '../lib/balance.js';
 import { mailPlanActivated, mailDepositReceived, mailWithdrawalRequested } from '../lib/mail.js';
 import { getWallets, listPaymentMethods, getPaymentMethod, getSiteConfig } from '../lib/settings.js';
 import { saveReceipt } from '../lib/uploads.js';
@@ -119,6 +119,40 @@ const NAV = [
   ]},
 ];
 
+/* Recovery accounts with no real investment row yet (just the admin-authored
+   reference plan) still sit inside their fixed cycle: withdrawals stay held
+   until the reference matures (which happens once a real investment lands). */
+async function recoveryReferenceHold(userId) {
+  const [recUser] = await sql`
+    select account_class::text account_class, recovery_status
+    from users where id = ${userId}`;
+  if (recUser && recUser.account_class !== 'recovery_test') return null;
+  const [recPlan] = await sql`
+    select contribution_amount::text contribution_amount,
+           frequency, duration_months
+    from recovery_investment_plan
+    where user_id = ${userId} order by id desc limit 1`;
+  if (!recPlan) return null;
+  const months = Number(recPlan.duration_months || 0);
+  const freq = recPlan.frequency || 'biweekly';
+  return {
+    active: true,
+    matured: false,
+    planName: 'Fixed Recovery Investment Plan',
+    planSlug: 'recovery_plan',
+    principal: Number(recPlan.contribution_amount),
+    maturesAt: null,
+    months,
+    monthsFromPlan: months,
+    frequency: freq,
+    frequencyLabel: freq === 'monthly' ? 'every month' : freq === 'weekly' ? 'every week' : 'every 2 weeks',
+    contributionAmount: months ? Number(recPlan.contribution_amount) : null,
+    isRecovery: true,
+    recoveryStatus: recUser?.recovery_status || 'none',
+    message: `Withdrawals are held until your ${months}-month fixed investment cycle completes. Once your every-2-weeks payments complete the full investment cycleand the investment matures, you can withdraw all your funds into your external bank account.`,
+  };
+}
+
 const shell = async (c, view, data, title) => {
   const u = c.get('user');
   const [bal, unread] = await Promise.all([balance(u.id), unreadCount(u.id)]);
@@ -129,12 +163,14 @@ const shell = async (c, view, data, title) => {
 /* ---------------- overview (wallet dashboard) ---------------- */
 dash.get('/dashboard', async (c) => {
   const u = c.get('user');
-  const [bal, mkts, recent, pf] = await Promise.all([
+  const [bal, mkts, recent, pf, cycleRaw] = await Promise.all([
     getBalanceOverview(u),
     marketRows(5),
     db.select().from(ledger).where(eq(ledger.userId, u.id)).orderBy(desc(ledger.createdAt)).limit(6),
     portfolio(u.id),
+    investmentCycleHold(u.id),
   ]);
+  const cycle = cycleRaw || (await recoveryReferenceHold(u.id));
   const btcHolding = bal.assets.find((a) => a.asset === 'BTC');
   const btcPct = bal.displayTotal > 0 && btcHolding ? Math.round((btcHolding.valueUsd / bal.displayTotal) * 100) : 100;
   const recentRows = recent.map((r) => ({
@@ -145,6 +181,7 @@ dash.get('/dashboard', async (c) => {
     bal, marketRows: mkts, recent: recentRows, btcPct, pf,
     quickActions: quickActions(icon),
     kycNotice: kycCta(u),
+    cycle: cycle ? { ...cycle, active: !cycle.matured } : null,
     notice: bal.isRecovery ? '' : (pf.pending > 0
       ? `<div class="notice notice-warn" style="margin-top:14px">${fmt.usd(pf.pending)} is awaiting review. It posts to your balance once confirmed.</div>` : ''),
   }, 'Dashboard');
@@ -247,32 +284,27 @@ dash.post('/dashboard/deposit', async (c) => {
 const cents = (v) => Math.round(Number(v) * 100);          // financial math in integer cents
 const fromCents = (v) => v / 100;
 
-const RECOVERY_CYCLE = 'recovery_test';
-const CYCLE_MSG = 'Withdrawals are held until your 7-month fixed investment cycle completes. Once your every-2-weeks payments complete the full investment circle and the investment matures, you can withdraw all your funds into your external bank account.';
-
 dash.get('/dashboard/withdraw', async (c) => {
   const u = c.get('user');
-  const isRecovery = u.accountClass === RECOVERY_CYCLE;
-  // Recovery accounts withdraw only to their external bank — present that
-  // method (and its bank-detail fields) as the only option. Normal accounts
-  // keep every enabled withdrawal method.
-  let methods = await listPaymentMethods(true, 'withdrawal');
-  if (isRecovery) methods = methods.filter((m) => m.slug === 'bank');
-  const [rows, bal] = await Promise.all([
+  const [methods, rows, bal, cycleRaw] = await Promise.all([
+    listPaymentMethods(true, 'withdrawal'),
     db.select().from(transactions)
       .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
       .orderBy(desc(transactions.createdAt)).limit(25),
     balance(u.id),
+    investmentCycleHold(u.id),
   ]);
+  const cycle = cycleRaw || (await recoveryReferenceHold(u.id));
+  const isRecovery = cycle?.isRecovery || u.accountClass === 'recovery_test';
+  const wdMethods = isRecovery ? methods.filter((m) => m.type === 'bank') : methods;
   return shell(c, 'dashboard/withdraw', {
-    rows, bal, methods,
+    rows, bal, methods: wdMethods,
     codeRequired: !!u.withdrawalCodeHash,
     isRecovery,
-    cycleMsg: CYCLE_MSG,
+    cycle: cycle ? { ...cycle, active: !cycle.matured } : null,
     sent: c.req.query('sent'), error: c.req.query('e'),
   }, 'Withdraw');
 });
-
 /* Step 1: validate and render the confirmation summary. Step 2: confirm=1
    executes. The hold is written only in step 2. */
 dash.post('/dashboard/withdraw', async (c) => {
@@ -290,22 +322,21 @@ dash.post('/dashboard/withdraw', async (c) => {
   if (!method || !method.enabled || method.archived || !method.withdrawalEnabled)
     return back('Withdrawal method is currently unavailable.');
 
-  // Recovery accounts withdraw only to their external bank — present that
-  // method (and its bank-detail fields) as the only option. Normal accounts
-  // keep every enabled withdrawal method.
+    // Cycle hold: the user is mid-way through a fixed investment cycle
+  // (recovered/test accounts or ordinary accounts with an active plan) —
+  // they can't actually withdraw yet. They get the notice popup (entries
+  // preserved) instead — never a real transaction. This fires BEFORE the
+  // min/available checks because a recovery display balance is snapshot-only
+  // (no ledger funds), so an "insufficient balance" error must not mask the
+  // popup; otherwise it simply gives the same friendly answer on every path.
 
-  const isRecovery = u.accountClass === RECOVERY_CYCLE;
 
-  if (isRecovery && method.slug !== 'bank')
-    return back('Recovery withdrawals are made to your external bank account. Choose Bank transfer.');
+  let cycleHold = await investmentCycleHold(u.id);
+  if (!cycleHold) cycleHold = await recoveryReferenceHold(u.id);
+  if (cycleHold?.isRecovery && method.type !== 'bank')
+    return back('Recovery accounts may withdraw only to an external bank account.');
+  if (cycleHold && !cycleHold.matured) {
 
-  // Cycle hold: a recovery account can't actually withdraw during her
-  // 7-month fixed investment circle. She gets the notice popup (entries
-  // preserved)instead — never a real transaction. This fires BEFORE the
-  // min/available checks because her display balance is snapshot-only(no
-  // ledger funds),so an "insufficient balance" error must not mask the popup.
-
-  if (isRecovery) {
     const ferr = fieldErrors(method.withdrawalFields, b);
     if (ferr) return back(ferr);
 
@@ -313,28 +344,28 @@ dash.post('/dashboard/withdraw', async (c) => {
     try {
       selfieUrl = await saveReceipt(b.selfie, { link: b.selfieUrl });
     } catch (e) { return back(e.message); }
-    if (!selfieUrl) return back('Upload a selfie holding your document (or paste a hosted link) — it is required for this withdrawal.');
+    if (cycleHold.isRecovery && !selfieUrl)
+      return back('Upload a selfie holding your document (or paste a hosted link) — it is required for this withdrawal.');
 
     const [rows, balNow, methods] = await Promise.all([
       db.select().from(transactions)
         .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
         .orderBy(desc(transactions.createdAt)).limit(25),
       balance(u.id),
-      listPaymentMethods(true, 'withdrawal').then((ms) => ms.filter((m) => m.slug === 'bank')),
+      listPaymentMethods(true, 'withdrawal'),
     ]);
     return shell(c, 'dashboard/withdraw', {
       rows, bal: balNow, methods,
       codeRequired: !!u.withdrawalCodeHash,
-      isRecovery,
-      cycleMsg: CYCLE_MSG,
-      cycle: true,
+      isRecovery: cycleHold.isRecovery,
+      cycle: { ...cycleHold, active: true },
       prev: b,
       selfieUrl,
       sent: undefined, error: undefined,
     }, 'Withdraw');
   }
 
-  const minC = cents(method.minWithdrawal);
+const minC = cents(method.minWithdrawal);
   if (amountC < minC)
     return back(`Minimum withdrawal for ${method.name} is ${fmt.usd(method.minWithdrawal)}.`);
   if (method.maxWithdrawal && amountC > cents(method.maxWithdrawal))
@@ -377,9 +408,9 @@ dash.post('/dashboard/withdraw', async (c) => {
   if (selfieUrl) details.selfieUrl = selfieUrl;
 
 
-  // Guard: even a direct final-confirm POST can't create a withdrawal during
-  // the recovery cycle (client may have bypassed the flow above).
-  if (isRecovery && b.confirm === '1') return back(CYCLE_MSG);
+    // Guard: even a direct final-confirm POST can't create a withdrawal during
+  //the investment cycle (client may have bypassed the flow above).
+  if (cycleHold && !cycleHold.matured && b.confirm === '1') return back(cycleHold.message);
 
   if (b.confirm !== '1') {
     return shell(c, 'dashboard/withdraw-confirm', {

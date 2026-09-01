@@ -1,11 +1,11 @@
 <div class="page-head"><h1>Withdraw</h1></div>
 <% if (it.sent) { %><div class="notice notice-ok">Withdrawal requested. The amount is held while we review it.</div><% } %>
 <% if (it.error) { %><div class="notice notice-err"><%= it.error %></div><% } %>
-<% if (it.isRecovery) { %>
-  <div class="notice notice-warn" style="margin-bottom:16px">
-    <b>7-month investment cycle in progress</b>
-    Withdrawals are held until your fixed investment circle completes with your every-2-weeks payments. Once it matures, you can withdraw all your funds into your external bank account.
-  </div>
+<% if (it.cycle) { %>
+    <div class="notice notice-warn" style="margin-bottom:16px">
+      <b><%= it.cycle.isRecovery ? 'Investment cycle in progress' : it.cycle.planName %> — withdrawal unlocks at maturity</b>
+      <%= it.cycle.message %>
+    </div>
 <% } %>
 
 <div class="grid grid-form-split">
@@ -158,12 +158,12 @@
 })();
 </script>
 
-<% if (it.cycle) { %>
+<% if (it.cycle && it.prev) { %>
 <div class="wd-modal-backdrop" id="cycle-modal" role="dialog" aria-modal="true" aria-labelledby="cycle-modal-title">
   <div class="wd-modal">
     <span class="wd-modal__dot" aria-hidden="true"></span>
     <h3 id="cycle-modal-title">Withdrawal — after your investment cycle</h3>
-    <p><%= it.cycleMsg || '' %></p>
+    <p><%= it.cycle?.message || '' %></p>
     <div class="wd-modal__actions">
       <button type="button" class="btn btn-primary btn-block" data-close-modal>OK, got it</button>
     </div>

@@ -19,6 +19,22 @@
     </div>
   <% } %>
 
+  <% if (it.cycle) { %>
+    <div class="w-banner w-banner--recovery" role="status" style="margin-bottom:12px">
+      <span class="w-banner__dot"></span>
+      <div style="flex:1">
+        <b><%= it.cycle.planName %> — <%= it.cycle.active ? 'in progress' : 'matured' %></b>
+        <span class="small">
+          <% if (it.cycle.isRecovery) { %>
+            Recovery investment cycle: <b><%= it.fmt.usd(it.cycle.contributionAmount) %></b> <%= it.cycle.frequencyLabel %> for <%= it.cycle.months %> months. Withdrawals unlock when the cycle completes.
+          <% } else { %>
+            Investment matures <%= it.cycle.active ? it.ago(it.cycle.maturesAt) : 'now' %>. Withdrawals unlock at maturity., and you can then withdraw into your preferred payment method.
+          <% } %>
+        </span>
+      </div>
+    </div>
+  <% } %>
+
   <% if (it.notice) { %><%~ it.notice %><% } %>
 
   <%~ include('../partials/wallet/balance-header', {
