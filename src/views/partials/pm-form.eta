@@ -50,7 +50,7 @@
     <div class="hint">Fields clients must fill on the deposit form.</div></div>
   <div class="field"><label>Withdrawal required fields (JSON)</label>
     <textarea class="input" name="withdrawalFields" rows="3" style="font-family:var(--f-mono);font-size:12px" placeholder="[{&quot;name&quot;:&quot;address&quot;,&quot;label&quot;:&quot;Wallet address&quot;,&quot;type&quot;:&quot;text&quot;,&quot;required&quot;:true}]"><%= JSON.stringify(m.withdrawalFields || []) %></textarea>
-    <div class="hint">Destination fields: wallet address, bank name, account number…</div></div>
+    <div class="hint">Destination fields: wallet address, bank name, account number… Field type &quot;select&quot; works when the bank selector list is set in Site settings.</div></div>
 </div>
 
 <div class="field"><label>Sort order</label>

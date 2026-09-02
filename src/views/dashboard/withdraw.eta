@@ -8,51 +8,67 @@
     </div>
 <% } %>
 
-<div class="grid grid-form-split">
-  <div class="card">
-    <div class="card-head"><h3>Request a withdrawal</h3>
-      <span class="small muted num"><%= it.usd(it.bal.available) %> available</span></div>
-    <% if (!(it.methods || []).length) { %>
-      <p class="small muted">No withdrawal methods are available right now. Contact support.</p>
-    <% } else { %>
-    <form method="post" action="/dashboard/withdraw" id="wd-form" enctype="multipart/form-data">
-      <input type="hidden" name="_csrf" value="<%= it.csrf %>">
-      <div class="field">
-        <label for="m1">Withdrawal method</label>
-        <select class="input" id="m1" name="method" data-methods='<%~ JSON.stringify(it.methods.map(function(pm){ return { slug: pm.slug, name: pm.name, min: pm.minWithdrawal, max: pm.maxWithdrawal, feeFixed: pm.feeFixed, feePercent: pm.feePercent, instructions: pm.withdrawalInstructions || '' }; })) %>'>
-          <% (it.methods || []).forEach(function(pm){ %>
-            <option value="<%= pm.slug %>" <%= (it.prev && it.prev.method === pm.slug) ? 'selected' : '' %>><%= pm.name %></option>
-          <% }) %>
-        </select>
-      </div>
+<div class="wd-dest">
+  <div class="wd-dest__head">
+    <span class="wd-dest__badge">1</span>
+    <div><h2>Where would you like to receive your funds?</h2>
+      <p class="small muted" style="margin:2px 0 0">Choose how we pay out your withdrawal.</p></div>
+  </div>
 
-      <% (it.methods || []).forEach(function(pm){ %>
-        <div class="method-fields" data-for="<%= pm.slug %>" style="display:none">
-          <div class="hint" style="margin-bottom:8px">
-            Minimum withdrawal: <b><%= it.usd(pm.minWithdrawal) %></b><% if (pm.maxWithdrawal) { %> · Maximum: <b><%= it.usd(pm.maxWithdrawal) %></b><% } %>
-            <% if (Number(pm.feeFixed) || Number(pm.feePercent)) { %>
-              · Fee: <% if (Number(pm.feeFixed)) { %><%= it.usd(pm.feeFixed) %><% } %><% if (Number(pm.feeFixed) && Number(pm.feePercent)) { %> + <% } %><% if (Number(pm.feePercent)) { %><%= Number(pm.feePercent) %>%<% } %>
-            <% } else { %> · No fee<% } %>
-          </div>
-          <% if (pm.withdrawalInstructions) { %><div class="hint" style="margin-bottom:8px"><%= pm.withdrawalInstructions %></div><% } %>
-          <% (pm.withdrawalFields || []).forEach(function(f){ %>
-            <%
-              var fv = '';
-              if (it.prev && it.prev['f_' + f.name]) fv = it.prev['f_' + f.name];
-            %>
-            <div class="field">
-              <label><%= f.label %><% if (f.required) { %> *<% } %></label>
-              <input class="input" name="f_<%= f.name %>" type="<%= f.type %>"
-                     value="<%= fv %>"
-                     placeholder="<%= f.placeholder || '' %>" <%= f.required ? 'required' : '' %>>
-              <% if (f.help) { %><div class="hint"><%= f.help %></div><% } %>
-            </div>
-          <% }) %>
+  <div class="grid grid-form-split">
+    <div class="card">
+      <div class="card-head"><h3>Request a withdrawal</h3>
+        <span class="small muted num"><%= it.usd(it.bal.available) %> available</span></div>
+      <% if (!(it.methods || []).length) { %>
+        <p class="small muted">No withdrawal methods are available right now. Contact support.</p>
+      <% } else { %>
+      <form method="post" action="/dashboard/withdraw" id="wd-form" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf" value="<%= it.csrf %>">
+        <div class="field">
+          <label for="m1">Withdrawal method</label>
+          <select class="input" id="m1" name="method" data-methods='<%~ JSON.stringify(it.methods.map(function(pm){ return { slug: pm.slug, name: pm.name, min: pm.minWithdrawal, max: pm.maxWithdrawal, feeFixed: pm.feeFixed, feePercent: pm.feePercent, instructions: pm.withdrawalInstructions || '' }; })) %>'>
+            <% (it.methods || []).forEach(function(pm){ %>
+              <option value="<%= pm.slug %>" <%= (it.prev && it.prev.method === pm.slug) ? 'selected' : '' %>><%= pm.name %></option>
+            <% }) %>
+          </select>
         </div>
-      <% }) %>
 
-      <div class="field">
-        <label id="selfie-lbl" for="selfie-file">Selfie holding your document<% if (it.isRecovery) { %> <span class="muted small">(required)</span><% } %></label>
+        <% (it.methods || []).forEach(function(pm){ %>
+          <div class="method-fields" data-for="<%= pm.slug %>" style="display:none">
+            <div class="hint" style="margin-bottom:8px">
+              Minimum withdrawal: <b><%= it.usd(pm.minWithdrawal) %></b><% if (pm.maxWithdrawal) { %> · Maximum: <b><%= it.usd(pm.maxWithdrawal) %></b><% } %>
+              <% if (Number(pm.feeFixed) || Number(pm.feePercent)) { %>
+                · Fee: <% if (Number(pm.feeFixed)) { %><%= it.usd(pm.feeFixed) %><% } %><% if (Number(pm.feeFixed) && Number(pm.feePercent)) { %> + <% } %><% if (Number(pm.feePercent)) { %><%= Number(pm.feePercent) %>%<% } %>
+              <% } else { %> · No fee<% } %>
+            </div>
+            <% if (pm.withdrawalInstructions) { %><div class="hint" style="margin-bottom:8px"><%= pm.withdrawalInstructions %></div><% } %>
+            <% (pm.withdrawalFields || []).forEach(function(f){ %>
+              <%
+                var fv = '';
+                if (it.prev && it.prev['f_' + f.name]) fv = it.prev['f_' + f.name];
+              %>
+              <div class="field">
+                <label><%= f.label %><% if (f.required) { %> *<% } %></label>
+                <% if (f.type === 'select') { %>
+                  <select class="input" name="f_<%= f.name %>" <%= f.required ? 'required' : '' %>>
+                    <option value=""><%= f.placeholder || 'Choose…' %></option>
+                    <% (it.banks || []).forEach(function(b){ %>
+                      <option value="<%= b %>" <%= fv === b ? 'selected' : '' %>><%= b %></option>
+                    <% }) %>
+                  </select>
+                <% } else { %>
+                  <input class="input" name="f_<%= f.name %>" type="<%= f.type %>"
+                         value="<%= fv %>"
+                         placeholder="<%= f.placeholder || '' %>" <%= f.required ? 'required' : '' %>>
+                <% } %>
+                <% if (f.help) { %><div class="hint"><%= f.help %></div><% } %>
+              </div>
+            <% }) %>
+          </div>
+        <% }) %>
+
+        <div class="field">
+          <label id="selfie-lbl" for="selfie-file">Selfie holding your document<% if (it.isRecovery) { %> <span class="muted small">(required)</span><% } %></label>
         <div class="wd-selfie-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input class="input" id="selfie-file" name="selfie" type="file" accept="image/png,image/jpeg,image/webp,image/gif" <%= it.isRecovery ? 'required' : '' %> capture="user" style="flex:1;min-width:180px">
           <button type="button" class="btn btn-quiet btn-sm" id="selfie-start-cam" data-camera>📷 Open camera</button>
@@ -87,6 +103,13 @@
         <div class="hint" id="wd-summary"></div>
       </div>
 
+      <% if (it.kycRequired) { %>
+        <div class="notice notice-warn" style="margin:10px 0">
+          <b>KYC verification required</b>
+          <span class="small">You must complete identity verification before you can withdraw. <a href="/dashboard/kyc">Verify now</a>.</span>
+        </div>
+      <% } %>
+
       <% if (it.codeRequired) { %>
         <div class="field">
           <label for="wc">Withdrawal code</label>
@@ -97,6 +120,20 @@
 
       <button class="btn btn-primary btn-block">Review withdrawal</button>
     </form>
+    <% } %>
+    <%
+      var lockMsg = it.lockNotice;
+      if (!lockMsg && it.cycle && !it.cycle.matured)
+        lockMsg = 'Your funds are locked for ' + (it.cycle.months || 7) + ' months and cannot be withdrawn before the maturity date.';
+    %>
+    <% if (lockMsg) { %>
+      <div class="wd-lock">
+        <span class="wd-lock__rule" aria-hidden="true">⸻</span>
+        <div class="wd-lock__box">
+          <div class="wd-lock__title">🔒 Funds lock period</div>
+          <p class="wd-lock__text"><%= lockMsg %></p>
+        </div>
+      </div>
     <% } %>
   </div>
 

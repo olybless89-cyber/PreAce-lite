@@ -925,12 +925,18 @@ admin.get('/admin/site', async (c) =>
 
 admin.post('/admin/site', async (c) => {
   const b = c.get('body');
+  const prev = await getSiteConfig();
+  const bankRaw = String(b.bankOptions || '').trim();
   await setSiteConfig({
     supportEmail: String(b.supportEmail || ''),
     smartsuppKey: String(b.smartsuppKey || ''),
     withdrawalKycRequired: b.withdrawalKycRequired === 'on',
     officeAddress: String(b.officeAddress || ''),
     officePhone: String(b.officePhone || ''),
+    withdrawalLockMonths: Number(b.withdrawalLockMonths) || Number(prev.withdrawalLockMonths) || 7,
+    bankOptions: bankRaw
+      ? bankRaw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean).slice(0, 40)
+      : (prev.bankOptions || []),
   });
   return c.redirect('/admin/site?ok=1');
 });

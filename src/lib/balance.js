@@ -108,6 +108,16 @@ export async function investmentCycleHold(userId) {
   };
 }
 
+/* Human copy for the "funds lock period" notice on the withdrawal page.
+   Only rendered while the investment/recovery cycle is active (not yet matured);
+   ordinary accounts without an active cycle see no lock notice. */
+export function lockNotice(cycle, fallbackMonths = 7) {
+  if (!(cycle && !cycle.matured)) return '';
+  const months = cycle.monthsFromPlan || cycle.months || fallbackMonths;
+
+  return `Your funds are locked for ${months} months and cannot be withdrawn before the maturity date.`;
+}
+
 /* The latest recovery snapshot for a user, with its asset rows. */
 export async function activeRecoverySnapshot(userId) {
   const [s = null] = await sql`

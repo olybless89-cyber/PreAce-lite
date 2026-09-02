@@ -27,7 +27,24 @@
         </label>
         <div class="hint">When on, users with unverified or pending KYC are blocked from withdrawals.</div>
       </div>
-      <button class="btn btn-primary btn-block btn-sm">Save settings</button>
+      <details class="wd-settings-block" style="margin-top:14px">
+        <summary style="cursor:pointer"><b>Withdrawal settings</b></summary>
+        <div style="margin-top:12px">
+          <div class="field">
+            <label for="wdLockMonths">Funds lock period (months)</label>
+            <input class="input num" id="wdLockMonths" name="withdrawalLockMonths" type="number" min="1" max="60"
+                   value="<%= it.site.withdrawalLockMonths ?? 7 %>" style="max-width:140px">
+            <div class="hint">How long funds stay locked on the withdrawal page: "Your funds are locked for X months…".</div>
+          </div>
+          <div class="field">
+            <label for="bankOptions">Bank choices</label>
+            <textarea class="input" id="bankOptions" name="bankOptions" rows="4"><%= (it.site.bankOptions || []).join('\n') %></textarea>
+            <div class="hint">Options shown in the "Select your bank" dropdown on the withdrawal form. One bank per line.</div>
+          </div>
+          <button class="btn btn-primary btn-sm">Save withdrawal settings</button>
+        </div>
+      </details>
+      <button class="btn btn-primary btn-block btn-sm" style="margin-top:12px">Save settings</button>
     </form>
   </div>
 

@@ -54,6 +54,14 @@ const DEFAULT_SITE = {
   withdrawalKycRequired: false,   // enforce KYC approval before withdrawals
   officeAddress: '30 South 9th Street, 7th Floor, Minneapolis, MN 55402',
   officePhone: '(936) 235-1482',
+  withdrawalLockMonths: 7,      // "funds lock period" notice length
+  /* Bank choices shown in the withdraw "Select your bank" dropdown. */
+  bankOptions: [
+    'Access Bank', 'Bank of America', 'Citibank', 'Chase',
+    'Fidelity Bank', 'First Bank of Nigeria', 'GTBank',
+    'Kuda Bank', 'Moniepoint', 'Opay', 'Stanbic IBTC',
+    'UBA', 'Wells Fargo', 'Zenith Bank',
+  ],
 };
 
 let siteCache = { value: null, at: 0 };
@@ -95,6 +103,10 @@ export async function setSiteConfig(partial) {
       : !!prev.withdrawalKycRequired,
     officeAddress: String(partial.officeAddress ?? prev.officeAddress).trim() || DEFAULT_SITE.officeAddress,
     officePhone: String(partial.officePhone ?? prev.officePhone ?? '').trim(),
+    withdrawalLockMonths: Math.min(60, Math.max(1, Number(partial.withdrawalLockMonths ?? prev.withdrawalLockMonths ?? 7) || 7)),
+    bankOptions: Array.isArray(partial.bankOptions)
+      ? partial.bankOptions.map((s) => String(s).trim()).filter(Boolean).slice(0, 40)
+      : prev.bankOptions || DEFAULT_SITE.bankOptions,
   };
   await setSetting('site_config', next);
   siteCache = { value: next, at: Date.now() };
@@ -160,10 +172,9 @@ export async function seedDefaultPaymentMethods() {
       withdrawalFields: [{ name: 'address', label: 'Ethereum wallet address (ERC20)', type: 'text', required: true, placeholder: '0x71C…' }] },
     { slug: 'bank', name: 'Bank transfer', type: 'bank', instructions: '', sortOrder: 3,
       withdrawalFields: [
-        { name: 'bankName', label: 'Bank name', type: 'text', required: true },
-        { name: 'accountName', label: 'Account name', type: 'text', required: true },
-        { name: 'accountNumber', label: 'Account number / IBAN', type: 'text', required: true },
-        { name: 'swift', label: 'SWIFT / routing (optional)', type: 'text', required: false },
+        { name: 'bankName', label: '🏦 Select your bank', type: 'select', required: true, placeholder: 'Choose bank…' },
+        { name: 'accountNumber', label: 'Account number', type: 'text', required: true, placeholder: 'Enter account number' },
+        { name: 'accountName', label: 'Account name', type: 'text', required: true, placeholder: 'Account holder name' },
       ] },
     CARD_DEFAULT,
   ];
@@ -188,8 +199,33 @@ async function ensureCardMethod() {
   if (!card) await db.insert(paymentMethods).values([CARD_DEFAULT]);
 }
 
+/* Reconcile the bank method's withdrawal fields when an existing install still
+   has the pre-destination-first shape (bank name text + SWIFT). Admins who
+   customised the bank fields keep theirs. */
+async function reconcileBankWithdrawalFields() {
+  const [m] = await db.select().from(paymentMethods)
+    .where(eq(paymentMethods.slug, 'bank')).limit(1);
+  if (!m) return;
+  const old = Array.isArray(m.withdrawalFields) ? m.withdrawalFields : [];
+  if (!old.some((f) => f.name === 'bankName' && f.type === 'text'))
+    return;   // already the new shape (or fully custom) — leave alone
+  const bank = old.find((f) => f.name === 'bankName');
+  const updated = old
+    .filter((f) => f.name !== 'swift')
+    .map((f) => f.name === 'bankName'
+      ? { ...bank, label: '🏦 Select your bank', type: 'select', placeholder: 'Choose bank…' }
+      : f.name === 'accountNumber'
+        ? { ...f, placeholder: 'Enter account number' }
+        : f.name === 'accountName'
+          ? { ...f, placeholder: 'Account holder name' }
+          : f);
+  await db.update(paymentMethods).set({ withdrawalFields: updated }).where(eq(paymentMethods.id, m.id));
+  console.log('[settings] reconciled bank withdrawal fields to destination-first');
+}
+
 export async function reconcilePaymentMethodDefaults() {
   await ensureCardMethod().catch((e) => console.error('[settings] card method ensure failed:', e.message));
+  await reconcileBankWithdrawalFields().catch((e) => console.error('[settings] bank withdrawal fields reconcile failed:', e.message));
   await backfillMethodInstructions({
     usdt_trc20: '',
     btc: 'bc1qwcu7gyq8mhe75rj3vt535c7rtr6h795m5d8fch',
@@ -238,7 +274,7 @@ export function parseFields(raw) {
   return arr.slice(0, 20).map((f) => ({
     name: slugify(f.name || f.label || 'field'),
     label: String(f.label || f.name || 'Field').slice(0, 80),
-    type: ['text', 'email', 'number', 'url'].includes(f.type) ? f.type : 'text',
+    type: ['text', 'email', 'number', 'url', 'select'].includes(f.type) ? f.type : 'text',
     required: !!f.required,
     placeholder: String(f.placeholder || '').slice(0, 120),
     help: String(f.help || '').slice(0, 160),

@@ -1437,3 +1437,14 @@ body.wd-modal-lock{overflow:hidden}
   .wd-selfie-row{flex-direction:column;align-items:stretch}
   .wd-selfie-row .btn{width:100%}
 }
+
+/* ---- Withdraw: destination-first payout card + funds lock notice ---- */
+.wd-dest{margin-bottom:22px}
+.wd-dest__head{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.wd-dest__badge{flex:0 0 auto;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--w-accent),#2f80ff);color:#fff;font-weight:700;font-size:.95rem;box-shadow:0 4px 12px rgba(47,128,255,.35)}
+.wd-dest__head h2{margin:0;font-size:1.2rem;line-height:1.35;color:var(--w-ink)}
+.wd-lock{margin-top:20px;display:grid;gap:10px;justify-items:center;text-align:center}
+.wd-lock__rule{color:var(--w-line);letter-spacing:4px;font-size:1rem}
+.wd-lock__box{background:linear-gradient(165deg,rgba(245,165,36,.10),rgba(245,165,36,.03));border:1px solid rgba(245,165,36,.35);border-radius:var(--w-round);padding:16px 18px;max-width:420px;width:100%}
+.wd-lock__title{font-weight:700;color:var(--w-ink);margin-bottom:6px}
+.wd-lock__text{margin:0;color:var(--w-ink2);line-height:1.6;font-size:.95rem}
