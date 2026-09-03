@@ -110,10 +110,16 @@ export async function investmentCycleHold(userId) {
 
 /* Human copy for the "funds lock period" notice on the withdrawal page.
    Only rendered while the investment/recovery cycle is active (not yet matured);
-   ordinary accounts without an active cycle see no lock notice. */
-export function lockNotice(cycle, fallbackMonths = 7) {
+   ordinary accounts without an active cycle see no lock notice.
+
+   The actual plan/reference months drive the displayed lock length (a recovery
+   or migrated account keeps its own cycle length,e.g. Tammy's 7 months);
+   the site-config `withdrawalLockMonths` (passed as `fallbackMonths`) only
+   serves as the default when the cycle carries no month information. */
+export function lockNotice(cycle, fallbackMonths = null) {
   if (!(cycle && !cycle.matured)) return '';
-  const months = cycle.monthsFromPlan || cycle.months || fallbackMonths;
+  const months = cycle.monthsFromPlan || cycle.months
+    || (Number(fallbackMonths) > 0 ? Number(fallbackMonths) : 7);
 
   return `Your funds are locked for ${months} months and cannot be withdrawn before the maturity date.`;
 }
@@ -189,24 +195,43 @@ export async function getBalanceOverview(user) {
       };
     });
 
+    /* Real funds (admin credits, approved deposits, cycle payouts — any
+       genuine ledger movement) add onto the snapshot baseline so the total
+       balance always reflects both origins. The merged value is still labelled
+       recovery display data and the asset row breakdown stays the certified
+       snapshot (ledger funds are expressed via the snapshot total now). */
+    const ledgerCredits = Math.max(0, real.total);
+    const displayTotal = snapshot.displayTotal + ledgerCredits;
+
+    // Real credited funds also appear as an explicit asset row (so the asset
+    // breakdown sums to the displayed total, including the snapshot's own rows).
+    if (ledgerCredits > 0) {
+      assets.push({
+        asset: 'USD', ticker: 'USD', name: 'Wallet cash', kind: 'fiat', color: '#2563EB',
+        valueUsd: ledgerCredits, qty: ledgerCredits,
+      });
+    }
+
     // Approx crypto equivalent in BTC, from the snapshot's own BTC price
     // when the admin recorded one, else the live mark.
+
     let btcPrice = snapshot.btcPrice;
     if (!(btcPrice > 0)) btcPrice = livePrices.BTCUSDT || 0;
     let btcEquiv = null;
     if (btcPrice > 0) {
       // Native BTC qty already in the snapshot
       const nativeBtc = assets.find((a) => a.asset === 'BTC')?.qty || 0;
-      btcEquiv = nativeBtc + (snapshot.displayTotal - (assets.find((a) => a.asset === 'BTC')?.valueUsd || 0)) / btcPrice;
+      btcEquiv = nativeBtc + (displayTotal - (assets.find((a) => a.asset === 'BTC')?.valueUsd || 0)) / btcPrice;
     }
 
     return {
       kind,
-      displayTotal: snapshot.displayTotal,
+      displayTotal,
       approxcBtc: btcEquiv,
       btcPrice: btcPrice > 0 ? btcPrice : null,
       assets,
       real,
+      ledgerCredit: ledgerCredits,
       snapshot: {
         id: snapshot.id, type: snapshot.snapshot_type, status: snapshot.status,
         source: snapshot.source, notes: snapshot.notes, createdAt: snapshot.created_at,
