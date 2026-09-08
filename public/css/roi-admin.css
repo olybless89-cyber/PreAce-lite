@@ -1,0 +1,174 @@
+/*
+  roi-admin.css — namespaced under .roi-* / .roi-admin, same approach as
+  withdrawal.css from the previous bundle: hardcoded colors approximating
+  your dark navy/gold theme, swap for your real design tokens if you have
+  named CSS variables in app.css.
+
+  Link in your admin layout's <head>, after app.css:
+    <link rel="stylesheet" href="/css/roi-admin.css">
+*/
+
+.roi-admin {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  color: #eef1fb;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.roi-admin__title {
+  font-family: 'Sora', 'Inter', system-ui, sans-serif;
+  font-size: 1.5rem;
+  margin: 0 0 6px;
+  color: #fff;
+}
+
+.roi-admin__subtitle {
+  color: #9aa4c7;
+  margin: 0 0 20px;
+  font-size: 0.92rem;
+}
+
+.roi-card {
+  background: #101a35;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.roi-card__title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.roi-card__hint {
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  color: #9aa4c7;
+}
+
+.roi-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.roi-form label {
+  font-size: 0.82rem;
+  color: #c3caea;
+}
+
+.roi-form input,
+.roi-inline-form input {
+  background: #0b1330;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 0.92rem;
+}
+
+.roi-form button,
+.roi-inline-form button {
+  margin-top: 6px;
+  background: #d4a44c;
+  color: #16101a;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.roi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.roi-table th {
+  text-align: left;
+  color: #9aa4c7;
+  font-weight: 600;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.roi-table td {
+  padding: 10px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  vertical-align: top;
+}
+
+.roi-table__name { font-weight: 600; color: #fff; }
+.roi-table__email { color: #7d87ac; font-size: 0.78rem; }
+
+.roi-table__default-tag,
+.roi-table__custom-tag {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.roi-table__default-tag {
+  background: rgba(154, 164, 199, 0.15);
+  color: #9aa4c7;
+}
+
+.roi-table__custom-tag {
+  background: rgba(212, 164, 76, 0.15);
+  color: #e8c073;
+}
+
+.roi-inline-form {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.roi-inline-form input {
+  width: 110px;
+  padding: 8px 10px;
+}
+
+.roi-alert {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.roi-alert--success {
+  background: rgba(76, 189, 138, 0.1);
+  border: 1px solid rgba(76, 189, 138, 0.35);
+  color: #8fe4bf;
+}
+
+.roi-alert--error {
+  background: rgba(214, 88, 88, 0.1);
+  border: 1px solid rgba(214, 88, 88, 0.35);
+  color: #f0a3a3;
+}
+
+.roi-summary {
+  background: rgba(212, 164, 76, 0.08);
+  border: 1px solid rgba(212, 164, 76, 0.3);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.roi-summary__rate {
+  font-weight: 700;
+  color: #e8c073;
+}
+
+.roi-summary__detail {
+  font-size: 0.85rem;
+  color: #b9c0dd;
+  margin-top: 2px;
+}

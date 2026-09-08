@@ -1,0 +1,20 @@
+<%#
+  views/dashboard/_roi-summary.eta
+
+  Optional partial — include it wherever the user dashboard should show
+  their current rate and today's return, e.g. from your main dashboard
+  template:
+
+    <%~ include('dashboard/_roi-summary', { effectiveRate, dailyReturn, investedAmount }) %>
+
+  Expected `it`:
+    it.effectiveRate   -> number, this investment's %/day (custom or default)
+    it.dailyReturn     -> number, currency amount = investedAmount * effectiveRate / 100
+    it.investedAmount  -> number
+%>
+<div class="roi-summary">
+  <div class="roi-summary__rate"><%= it.effectiveRate %>%/day</div>
+  <div class="roi-summary__detail">
+    On $<%= it.investedAmount %> invested → <strong>$<%= it.dailyReturn.toFixed(2) %>/day</strong>
+  </div>
+</div>

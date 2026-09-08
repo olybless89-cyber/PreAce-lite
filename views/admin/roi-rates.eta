@@ -1,0 +1,92 @@
+<%#
+  views/admin/roi-rates.eta
+
+  Page BODY only — wrap it with whatever layout your other /admin pages
+  use (copy the pattern from an existing admin view, same as the
+  withdrawal.eta note in the previous bundle).
+
+  Expected `it`:
+    it.investments  -> array of { id, user_id, name, email, amount,
+                                   roi_rate_percent, effectiveRate,
+                                   status, created_at }
+    it.defaultRate  -> number, current platform default %/day
+    it.updated      -> 'default' | investmentId | null
+    it.error        -> 'invalid_rate' | null
+%>
+
+<div class="roi-admin">
+  <h1 class="roi-admin__title">ROI rates</h1>
+  <p class="roi-admin__subtitle">
+    Set the platform default daily rate, or override the rate for a specific
+    client's investment based on their agreed terms.
+  </p>
+
+  <% if (it.updated === 'default') { %>
+    <div class="roi-alert roi-alert--success">Platform default rate updated.</div>
+  <% } else if (it.updated) { %>
+    <div class="roi-alert roi-alert--success">Rate updated for investment #<%= it.updated %>.</div>
+  <% } %>
+  <% if (it.error === 'invalid_rate') { %>
+    <div class="roi-alert roi-alert--error">Enter a valid, non-negative rate.</div>
+  <% } %>
+
+  <section class="roi-card">
+    <h2 class="roi-card__title">Platform default rate</h2>
+    <p class="roi-card__hint">Applies to any investment without a custom rate. Currently <strong><%= it.defaultRate %>%/day</strong>.</p>
+    <form method="POST" action="/admin/roi-rates/default" class="roi-form">
+      <label for="default_rate_percent">Default rate (%/day)</label>
+      <input type="number" step="0.001" min="0" id="default_rate_percent" name="default_rate_percent" value="<%= it.defaultRate %>" required>
+      <label for="default_reason">Reason (optional, kept in the audit log)</label>
+      <input type="text" id="default_reason" name="reason" placeholder="e.g. quarterly rate review">
+      <button type="submit">Save default rate</button>
+    </form>
+  </section>
+
+  <section class="roi-card">
+    <h2 class="roi-card__title">Per-client overrides</h2>
+    <table class="roi-table">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Invested</th>
+          <th>Current rate</th>
+          <th>Set custom rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% it.investments.forEach(function(inv) { %>
+          <tr>
+            <td>
+              <div class="roi-table__name"><%= inv.name %></div>
+              <div class="roi-table__email"><%= inv.email %></div>
+            </td>
+            <td><%= inv.amount %></td>
+            <td>
+              <%= inv.effectiveRate %>%/day
+              <% if (inv.roi_rate_percent === null || inv.roi_rate_percent === undefined) { %>
+                <span class="roi-table__default-tag">default</span>
+              <% } else { %>
+                <span class="roi-table__custom-tag">custom</span>
+              <% } %>
+            </td>
+            <td>
+              <form method="POST" action="/admin/roi-rates/<%= inv.id %>" class="roi-inline-form">
+                <input
+                  type="number" step="0.001" min="0"
+                  name="rate_percent"
+                  placeholder="blank = use default"
+                  value="<%= (inv.roi_rate_percent === null || inv.roi_rate_percent === undefined) ? '' : inv.roi_rate_percent %>"
+                >
+                <input type="text" name="reason" placeholder="reason (optional)">
+                <button type="submit">Save</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (it.investments.length === 0) { %>
+          <tr><td colspan="4">No investments found — wire up listInvestmentsWithUsers() in src/routes/admin-roi.js.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </section>
+</div>
