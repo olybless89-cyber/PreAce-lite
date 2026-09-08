@@ -1,0 +1,92 @@
+<%#
+  views/admin/_roi-set-form.eta
+
+  Admin-only "Set investment & ROI" section for a client's profile page.
+  Modeled on the existing "Set withdrawal code" <details>/<summary>
+  collapsible block already in views/admin/user.eta (around line 88) —
+  same visual pattern, so it fits in without looking bolted-on.
+
+  DO NOT deploy this as its own page — it's a fragment meant to be pasted
+  into views/admin/user.eta. See README.md for exactly where.
+
+  Expected `it.u` (the same user object user.eta already has) plus:
+    it.currentInvestment -> { id, amount, roi_rate_percent, roi_rate_period,
+                               roi_effective_date, roi_reference } | null
+    it.roiPeriods        -> ['daily','weekly','monthly','yearly']
+    it.accruedSoFar      -> number | null (computed via computeAccruedReturn)
+%>
+
+<details class="card">
+  <summary class="row" style="justify-content:space-between;cursor:pointer;padding:10px 0">
+    <b>Set investment &amp; ROI</b><span class="muted">▾</span>
+  </summary>
+
+  <% if (it.currentInvestment && it.currentInvestment.roi_rate_percent) { %>
+    <div class="hint" style="margin:8px 0 14px">
+      Current: <b><%= it.currentInvestment.roi_rate_percent %>%</b> per
+      <b><%= it.currentInvestment.roi_rate_period %></b>,
+      effective <%= it.currentInvestment.roi_effective_date %>.
+      <% if (it.accruedSoFar !== null && it.accruedSoFar !== undefined) { %>
+        Accrued so far: <b><%= it.usd(it.accruedSoFar) %></b>.
+      <% } %>
+      <% if (it.currentInvestment.roi_reference) { %>
+        <br>Reference: <%= it.currentInvestment.roi_reference %>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="hint" style="margin:8px 0 14px">No investment/ROI set for this client yet.</div>
+  <% } %>
+
+  <form method="post" action="/admin/users/<%= it.u.id %>/roi" style="margin-top:8px">
+    <% if (it.currentInvestment) { %>
+      <input type="hidden" name="investment_id" value="<%= it.currentInvestment.id %>">
+    <% } %>
+
+    <div class="field">
+      <label>Invested amount (USD)</label>
+      <input class="input num" name="amount" type="number" min="0" step="0.01"
+             value="<%= it.currentInvestment ? it.currentInvestment.amount : '' %>" required>
+    </div>
+
+    <div class="row" style="gap:10px">
+      <div class="field" style="flex:1">
+        <label>Rate (%)</label>
+        <input class="input num" name="rate_percent" type="number" min="0" step="0.001"
+               value="<%= it.currentInvestment ? it.currentInvestment.roi_rate_percent : '' %>" required>
+      </div>
+      <div class="field" style="flex:1">
+        <label>Period</label>
+        <select class="input" name="period" required>
+          <option value="" disabled <%= !it.currentInvestment ? 'selected' : '' %>>Choose...</option>
+          <% it.roiPeriods.forEach(function(p) { %>
+            <option value="<%= p %>" <%= (it.currentInvestment && it.currentInvestment.roi_rate_period === p) ? 'selected' : '' %>>
+              <%= p.charAt(0).toUpperCase() + p.slice(1) %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Effective date</label>
+      <input class="input" name="effective_date" type="date"
+             value="<%= it.currentInvestment ? it.currentInvestment.roi_effective_date : '' %>" required>
+    </div>
+
+    <div class="field">
+      <label>Reference / notes (signed agreement)</label>
+      <input class="input" name="reference" type="text"
+             placeholder="e.g. Agreement ref #123, signed 2026-09-08, legal-approved"
+             value="<%= it.currentInvestment ? (it.currentInvestment.roi_reference || '') : '' %>">
+    </div>
+
+    <div class="field">
+      <label>Reason for this change (kept in the audit log)</label>
+      <input class="input" name="change_reason" type="text" placeholder="e.g. Contract signed and certified by legal">
+    </div>
+
+    <button class="btn btn-primary btn-sm" data-confirm="Set this client's investment and ROI rate?">
+      Save investment &amp; ROI
+    </button>
+  </form>
+</details>
