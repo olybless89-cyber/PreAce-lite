@@ -124,7 +124,7 @@ serve({ fetch: app.fetch, port }, (info) => {
       // Tammy is the recovery-demo account: re-assert her recovery_test class +
       // snapshot at every boot (idempotent). This replaces the old one-time
       // "convert to production" milestone that contradicted the live withdrawal flow.)
-      await runRecoveryTammyEnsure().catch((e) => console.error('[tammy] recovery ensure failed:', e.message));
+      // DISABLED: await runRecoveryTammyEnsure().catch((e) => console.error('[tammy] recovery ensure failed:', e.message));
       await autoSetupMail().catch((e) => console.error('[mail] auto-setup failed:', e.message));
       // Warm the transporter only after migration: getTransporter() reads the
       // settings table, which doesn't exist yet on a fresh database.
